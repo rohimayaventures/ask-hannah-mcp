@@ -16,6 +16,16 @@ import {
 const server = new McpServer({ name: "ask-hannah-mcp-server", version: "1.0.0" });
 const anthropic = new Anthropic();
 
+function extractAnthropicText(content: Anthropic.Message["content"]): string {
+  const parts: string[] = [];
+  for (const block of content) {
+    if (block.type === "text" && typeof block.text === "string") {
+      parts.push(block.text);
+    }
+  }
+  return parts.join("\n").trim();
+}
+
 // ── Tool 1: hannah_get_profile ───────────────────────────────────────────────
 
 server.registerTool(
@@ -437,20 +447,51 @@ When this tool returns output, display the full resume text directly to the user
       "DOMAIN EXPERTISE: " + skills.domain.join(", "),
       "",
       "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15. Use only the metrics and employers listed above.",
+      "",
+      "OUTPUT CONTRACT (non-negotiable): Your entire response must be only the resume text, ready to paste into a document.",
+      "Do not include any preamble or postscript: no 'Here is', no 'Below is', no commentary on how the resume was tailored, no callouts, no meta bullet lists, no 'things to update', no questions, and no offer to write a cover letter.",
+      "Your first character must be the first character of the resume (for example the candidate name or the first section heading). Your last character must be the last character of the resume.",
     ];
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1500,
-      system: systemLines.join("\n"),
-      messages: [{
-        role: "user",
-        content: "Generate a tailored resume for Hannah for: " + jobTitle + " at " + company + ". Role type: " + roleType + ".\n\nJob Description:\n" + jobDescription + "\n\nFormat: Summary, Skills, Experience, Projects, Education. Write the summary in first person, warm and direct. Keep bullet points concise and impact-focused. End with: 'Full downloadable PDF available at hannahkraulikpagade.com/resume-builder'",
-      }],
-    });
+    const userPrompt =
+      "Generate a tailored resume for Hannah for: " +
+      jobTitle +
+      " at " +
+      company +
+      ". Role type: " +
+      roleType +
+      ".\n\nJob Description:\n" +
+      jobDescription +
+      "\n\nFormat: Summary, Skills, Experience, Projects, Education. Write the summary in first person, warm and direct. Keep bullet points concise and impact-focused. End with: 'Full downloadable PDF available at hannahkraulikpagade.com/resume-builder'" +
+      "\n\nReply with the resume only — no other words before or after it.";
 
-    const text = response.content.find((b) => b.type === "text" && "text" in b) as { type: "text"; text: string } | undefined;
-    return { content: [{ type: "text", text: text?.text ?? "Unable to generate resume. Please try again." }] };
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: systemLines.join("\n"),
+        messages: [{ role: "user", content: userPrompt }],
+      });
+
+      const text = extractAnthropicText(response.content);
+      if (!text) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "Resume generation returned empty output. Set ANTHROPIC_API_KEY and try again." }],
+        };
+      }
+
+      return {
+        content: [{ type: "text", text }],
+        structuredContent: { document: "resume", text },
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        isError: true,
+        content: [{ type: "text", text: "Resume generation failed: " + message }],
+      };
+    }
   }
 );
 
@@ -496,24 +537,55 @@ When this tool returns output, display the full cover letter text directly to th
       ...projects.filter((p) => p.status === "live").map((p) => "- " + p.name + " (" + p.domain + ") at " + p.liveUrl),
       "",
       "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15. Three paragraphs maximum. End with: hannah.pagade@gmail.com or hannahkraulikpagade.com",
+      "",
+      "OUTPUT CONTRACT (non-negotiable): Your entire response must be only the cover letter text.",
+      "Do not include any preamble or postscript: no 'Here is', no commentary on tailoring, no callouts, no questions, and no offer to write a resume.",
+      "Your first character must be the salutation (e.g. 'Dear'). Your last line must be the sign-off.",
     ];
 
     const greeting = hiringManagerName
       ? "Dear " + hiringManagerName + ","
       : "Dear Hiring Team at " + company + ",";
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 800,
-      system: systemLines.join("\n"),
-      messages: [{
-        role: "user",
-        content: "Write a three-paragraph cover letter for Hannah applying to " + jobTitle + " at " + company + ".\n\nOpening: " + greeting + "\n\nJob Description:\n" + jobDescription + "\n\nMake it warm, direct, and specific to this role. First paragraph: who she is and why this role specifically. Second paragraph: the most relevant proof from her background. Third paragraph: what she brings to the team and a clear call to action. Sign off as Hannah Kraulik Pagade.",
-      }],
-    });
+    const userPrompt =
+      "Write a three-paragraph cover letter for Hannah applying to " +
+      jobTitle +
+      " at " +
+      company +
+      ".\n\nOpening: " +
+      greeting +
+      "\n\nJob Description:\n" +
+      jobDescription +
+      "\n\nMake it warm, direct, and specific to this role. First paragraph: who she is and why this role specifically. Second paragraph: the most relevant proof from her background. Third paragraph: what she brings to the team and a clear call to action. Sign off as Hannah Kraulik Pagade." +
+      "\n\nReply with the letter only — no other words before or after it.";
 
-    const text = response.content.find((b) => b.type === "text" && "text" in b) as { type: "text"; text: string } | undefined;
-    return { content: [{ type: "text", text: text?.text ?? "Unable to generate cover letter. Please try again." }] };
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        system: systemLines.join("\n"),
+        messages: [{ role: "user", content: userPrompt }],
+      });
+
+      const text = extractAnthropicText(response.content);
+      if (!text) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "Cover letter generation returned empty output. Set ANTHROPIC_API_KEY and try again." }],
+        };
+      }
+
+      return {
+        content: [{ type: "text", text }],
+        structuredContent: { document: "cover_letter", text },
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        isError: true,
+        content: [{ type: "text", text: "Cover letter generation failed: " + message }],
+      };
+    }
   }
 );
 
