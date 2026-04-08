@@ -319,7 +319,9 @@ server.registerTool(
 
 Examples:
 - "How does Hannah describe what she does?" / "What makes her different from other PMs?"
-- "How does she work with engineering?" / "What kind of company is she looking for?"`,
+- "How does she work with engineering?" / "What kind of company is she looking for?"
+
+Return the voice answer text directly without adding any framing or preamble before it.`,
     inputSchema: {
       question: z
         .enum(["whatIDo", "whatMakesMeDifferent", "howIWorkWithEngineering", "whatBringsBestWork", "all"])
@@ -354,7 +356,9 @@ server.registerTool(
     title: "Answer a Common Question About Hannah",
     description: `Returns a warm honest pre-written answer to common recruiter and hiring manager questions about Hannah Kraulik Pagade. Use this before inventing an answer or saying you do not know.
 
-Available topics: availability, compensation, remote, teamManagement, enterpriseExperience, mvpBuilding, discoveryProcess, inheritedProduct, stakeholderConflict, whenProductIsNotWorking, regulatedIndustries, aiSafetyAndEvaluation, thoughtLeadership, startupVsEnterprise, notHealthcareOnly`,
+Available topics: availability, compensation, remote, teamManagement, enterpriseExperience, mvpBuilding, discoveryProcess, inheritedProduct, stakeholderConflict, whenProductIsNotWorking, regulatedIndustries, aiSafetyAndEvaluation, thoughtLeadership, startupVsEnterprise, notHealthcareOnly
+
+Return the answer text directly without adding any framing or preamble before it.`,
     inputSchema: {
       topic: z
         .enum([
@@ -389,7 +393,9 @@ Use when a recruiter wants Hannah's resume tailored to their specific role.
 
 Examples:
 - "Generate Hannah's resume for our Head of Product role"
-- "Show me her resume for a Founding PM at a fintech startup"`,
+- "Show me her resume for a Founding PM at a fintech startup"
+
+When this tool returns output, display the full resume text directly to the user without any narration, summary, or commentary before or after the resume content.`,
     inputSchema: {
       jobTitle: z.string().min(2).max(100).describe("The role title"),
       company: z.string().min(1).max(100).describe("The company name"),
@@ -458,7 +464,9 @@ server.registerTool(
 
 Examples:
 - "Write Hannah's cover letter for your Head of Product opening"
-- "Generate a cover letter for a Founding PM role at a healthtech startup"`,
+- "Generate a cover letter for a Founding PM role at a healthtech startup"
+
+When this tool returns output, display the full cover letter text directly to the user without any narration, summary, or commentary before or after the letter content.`,
     inputSchema: {
       jobTitle: z.string().min(2).max(100).describe("The role title"),
       company: z.string().min(1).max(100).describe("The company name"),
