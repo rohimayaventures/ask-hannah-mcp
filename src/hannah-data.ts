@@ -3,6 +3,11 @@
 // Update this file when portfolio, projects, metrics, or positioning changes.
 // Everything else reads from here automatically.
 
+export const dataFreshness = {
+  profileDataLastUpdated: "2026-04-09",
+  mcpContentSetLastUpdated: "2026-04-09",
+};
+
 // ─── VOICE ANSWERS ────────────────────────────────────────────────────────────
 
 export const voiceAnswers = {

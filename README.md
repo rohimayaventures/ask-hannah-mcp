@@ -24,6 +24,11 @@ An MCP (Model Context Protocol) server that lets any recruiter or hiring manager
 | `hannah_generate_resume` | Tailored resume generation using verified source data |
 | `hannah_generate_cover_letter` | Tailored cover letter generation using verified source data |
 
+## Data Freshness
+
+- Profile data last updated: sourced from `PROFILE_DATA_LAST_UPDATED` (falls back to a default in `src/hannah-data.ts`)
+- MCP content set last updated: sourced from `MCP_CONTENT_SET_LAST_UPDATED` (falls back to current UTC date at runtime)
+
 ## Example Questions to Ask Claude
 
 - "Who is Hannah Kraulik Pagade and what is she looking for?"
@@ -47,7 +52,9 @@ npm run dev
 3. Connect the GitHub repo
 4. Railway auto-detects Node.js and deploys
 5. Set `BASE_URL` environment variable to your Railway URL
-6. Copy the Railway public URL and add `/mcp` as your Claude connector
+6. Set `PROFILE_DATA_LAST_UPDATED` to the date your profile data was last refreshed (for example `2026-04-09`)
+7. Optionally set `MCP_CONTENT_SET_LAST_UPDATED` to your deploy date (if not set, it auto-falls back to the current UTC date)
+8. Copy the Railway public URL and add `/mcp` as your Claude connector
 
 ## Tech Stack
 

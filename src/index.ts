@@ -11,10 +11,18 @@ import {
   designSystems,
   voiceAnswers,
   anticipatedQuestions,
+  dataFreshness,
 } from "./hannah-data.js";
 
 const server = new McpServer({ name: "ask-hannah-mcp-server", version: "1.0.0" });
 const anthropic = new Anthropic();
+const todayUTC = new Date().toISOString().slice(0, 10);
+const freshness = {
+  profileDataLastUpdated: process.env.PROFILE_DATA_LAST_UPDATED ?? dataFreshness.profileDataLastUpdated,
+  mcpContentSetLastUpdated: process.env.MCP_CONTENT_SET_LAST_UPDATED ?? todayUTC,
+};
+const anonymizationNotice =
+  "Some employer names are intentionally anonymized at this stage. Role scope, measurable outcomes, and context are provided. Full employer detail is shared during recruiter and hiring manager conversations.";
 
 function extractAnthropicText(content: Anthropic.Message["content"]): string {
   const parts: string[] = [];
@@ -57,6 +65,8 @@ Examples:
       contact: { email: profile.email, portfolio: profile.portfolio, linkedin: profile.linkedin, github: profile.github },
       compensation: profile.compensation,
       availability: profile.availability,
+      profileDataLastUpdated: freshness.profileDataLastUpdated,
+      mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
     };
 
     if (format === "json") {
@@ -100,7 +110,11 @@ ${profile.compensation}
 - Portfolio: ${profile.portfolio}
 - LinkedIn: ${profile.linkedin}
 - GitHub: ${profile.github}
-- Email: ${profile.email}`;
+- Email: ${profile.email}
+
+## Data Freshness
+- Profile data last updated: ${freshness.profileDataLastUpdated}
+- MCP content set last updated: ${freshness.mcpContentSetLastUpdated}`;
 
     return { content: [{ type: "text", text: md }] };
   }
@@ -222,7 +236,7 @@ server.registerTool(
   "hannah_get_metrics",
   {
     title: "Get Hannah's Validated Metrics",
-    description: `Returns Hannah's validated professional metrics across operations leadership and AI product work. All metrics are real, sourced from named employers and specific research. None are estimated or invented.
+    description: `Returns Hannah's validated professional metrics across operations leadership and AI product work. All metrics are real and evidence-based. None are estimated or invented.
 
 Use when someone asks about Hannah's impact, results, numbers, or proof of work.
 
@@ -243,11 +257,11 @@ Examples:
     const prodMetrics = category === "operations" ? [] : metrics.product;
 
     if (format === "json") {
-      const data = { operations: opsMetrics, product: prodMetrics };
+      const data = { operations: opsMetrics, product: prodMetrics, anonymizationNotice };
       return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data };
     }
 
-    let md = `# Hannah Kraulik Pagade — Validated Metrics\n\nAll metrics are real and verified. None are estimated or rounded.\n\n`;
+    let md = `# Hannah Kraulik Pagade — Validated Metrics\n\nAll metrics are real and verified. None are estimated or rounded.\n\n${anonymizationNotice}\n\n`;
 
     if (opsMetrics.length > 0) {
       md += `## Operations Leadership\n\n`;
@@ -483,7 +497,12 @@ When this tool returns output, display the full resume text directly to the user
 
       return {
         content: [{ type: "text", text }],
-        structuredContent: { document: "resume", text },
+        structuredContent: {
+          document: "resume",
+          text,
+          profileDataLastUpdated: freshness.profileDataLastUpdated,
+          mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
+        },
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -577,7 +596,12 @@ When this tool returns output, display the full cover letter text directly to th
 
       return {
         content: [{ type: "text", text }],
-        structuredContent: { document: "cover_letter", text },
+        structuredContent: {
+          document: "cover_letter",
+          text,
+          profileDataLastUpdated: freshness.profileDataLastUpdated,
+          mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
+        },
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -621,6 +645,8 @@ async function runHTTP(): Promise<void> {
       connect: `${process.env.BASE_URL ?? "https://your-railway-url.railway.app"}/mcp`,
       portfolio: "https://hannahkraulikpagade.com",
       linkedin: "https://www.linkedin.com/in/hannah-pagade",
+      profileDataLastUpdated: freshness.profileDataLastUpdated,
+      mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
     });
   });
 
