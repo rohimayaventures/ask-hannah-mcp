@@ -14,7 +14,7 @@
 | **Project name** | Ask Hannah MCP |
 | **Tagline** | A live MCP server that lets AI systems query Hannah's professional data directly. |
 | **Status** | Live - production |
-| **Primary URL** | ask-hannah-mcp-production.up.railway.app/mcp |
+| **Primary URL** | https://ask-hannah-mcp-production.up.railway.app/mcp |
 | **Repo** | github.com/rohimayaventures/ask-hannah-mcp |
 | **Tags** | MCP · AGENTIC-AI · INFRASTRUCTURE · DEVELOPER-TOOLING |
 | **Role** | Product Lead, API Designer, Full-Stack Implementation |
@@ -187,7 +187,7 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | Metrics trust metadata | Working | JSON includes `evidenceTag` and `confidenceNote` |
 | Contact conversion ordering | Working | Calendly, then LinkedIn, then email, surfaced in hiring outputs |
 | Modular codebase and tests | Working | `src/lib`, `src/tool-handlers`, `npm test`, sample JSON docs |
-| `hannah-data.ts` correctness | Working | 17 years, six domains, all four live products, Ask Hannah MCP as infrastructure, correct metrics |
+| `hannah-data.ts` correctness | Working | 17 years, six domains, four live product sites plus Ask Hannah MCP live on Railway, correct metrics |
 | LaidOffRise MCP listing | Working | Listed in project data as building. Server designed and architected, not yet deployed. |
 | EclipseLink in project list | Not included | Intentionally omitted. EclipseLink is in early development and is not portfolio-ready. Generation prompts are already instructed not to mention it. |
 | Rate limiting | Not implemented | Low-traffic use case; Railway restarts handle abuse recovery; acceptable for current scope |
