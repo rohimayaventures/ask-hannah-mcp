@@ -47,7 +47,7 @@ export const anticipatedQuestions: Record<string, string> = {
 
   aiSafetyAndEvaluation: `This is central to how she builds, not an afterthought. OrixLink has a full safety and guardrails framework including escalation trigger logic, refusal protocols for high-risk scenarios, urgency classification across four tiers, and a validation suite. HealthLiteracy AI has a two-pass verification architecture where a second Claude call checks translation completeness before it reaches the user. She thinks about model failure modes before she thinks about the happy path.`,
 
-  thoughtLeadership: `She ships products instead of writing about shipping products. The live work is the thought leadership. That said she is an articulate communicator, a published author under a pen name, and someone who has facilitated executive-level conversations across complex organizations. She is comfortable presenting, writing, and speaking when the context calls for it.`,
+  thoughtLeadership: `She ships products instead of writing about shipping products. The live work is the thought leadership. That said she is an articulate communicator and someone who has facilitated executive-level conversations across complex organizations. She is comfortable presenting, writing, and speaking when the context calls for it.`,
 
   startupVsEnterprise: `She does her best building work in environments that move with urgency and care about quality simultaneously. Startups at the 0 to 1 stage are where she has built the most. She understands enterprise stakeholder dynamics from 17 years of operating inside large regulated organizations. She is fluent in both and can move between them naturally.`,
 
@@ -228,7 +228,7 @@ export const projects = [
     role: "Product Lead, MCP Architect, Full-Stack Implementation",
     timeline: "April 2026",
     summary:
-      "A publicly shareable MCP server that lets any recruiter or hiring manager add a URL to their Claude and query Hannah's work, background, metrics, projects, voice answers, hiring FAQs, role-focused hiring briefs (including summary mode), and generate tailored resumes and cover letters in natural language. Ten structured tools. The same data powers the portfolio widget at hannahkraulikpagade.com.",
+      "A publicly shareable MCP server that lets any recruiter or hiring manager add a URL to their Claude and query Hannah's work, background, metrics, projects, voice answers, hiring FAQs, role-focused hiring briefs (including summary mode), and generate tailored resumes and cover letters in natural language. Ten structured tools. The structured data in this server is the canonical fact source for Hannah's professional content.",
     stack: { highlighted: ["TypeScript", "MCP SDK", "Express", "Zod", "Railway"], standard: ["Anthropic SDK"] },
     keyOutcome:
       "Live on Railway with HTTP MCP transport, health and root diagnostics, and automated tests. Demonstrates MCP protocol fluency, structured tool design, trust metadata on metrics, recruiter conversion paths (Calendly, LinkedIn, email), and a job search leave-behind that runs inside the tools hiring teams already use.",
