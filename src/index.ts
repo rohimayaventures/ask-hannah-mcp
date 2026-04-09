@@ -31,6 +31,44 @@ const anonymizationNotice =
 const documentProvenanceStatement =
   "Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.";
 
+type CanonicalRoleFocus = "founding-pm" | "head-of-product" | "ai-pm" | "ux-ai" | "healthcare-ai" | "general-ai";
+
+const canonicalRoleLabels: Record<CanonicalRoleFocus, string> = {
+  "founding-pm": "Founding PM",
+  "head-of-product": "Head of Product",
+  "ai-pm": "AI Product Manager",
+  "ux-ai": "Conversational AI UX Design",
+  "healthcare-ai": "Healthcare AI Product Lead",
+  "general-ai": "General AI Product",
+};
+
+function normalizeRoleFocus(input: string): CanonicalRoleFocus {
+  if (input === "conversational-ai-pm" || input === "pm" || input === "conversational-ai" || input === "ai-pm") {
+    return "ai-pm";
+  }
+  if (input === "conversational-ai-ux-design" || input === "ux-design" || input === "ux-ai") {
+    return "ux-ai";
+  }
+  if (input === "general-ai-product" || input === "general") {
+    return "general-ai";
+  }
+  if (input === "founding-pm" || input === "head-of-product" || input === "healthcare-ai" || input === "general-ai") {
+    return input;
+  }
+  return "general-ai";
+}
+
+function metricEvidenceTag(metric: string, context: string): "operational_outcome" | "research_validated" | "live_product_observed" {
+  const haystack = `${metric} ${context}`.toLowerCase();
+  if (haystack.includes("validation") || haystack.includes("study") || haystack.includes("interview") || haystack.includes("scenario")) {
+    return "research_validated";
+  }
+  if (haystack.includes("live") || haystack.includes("pilot") || haystack.includes("shipped")) {
+    return "live_product_observed";
+  }
+  return "operational_outcome";
+}
+
 function extractAnthropicText(content: Anthropic.Message["content"]): string {
   const parts: string[] = [];
   for (const block of content) {
@@ -264,7 +302,15 @@ Examples:
     const prodMetrics = category === "operations" ? [] : metrics.product;
 
     if (format === "json") {
-      const data = { operations: opsMetrics, product: prodMetrics, anonymizationNotice };
+      const operations = opsMetrics.map((m) => ({
+        ...m,
+        evidenceTag: metricEvidenceTag(m.metric, m.context),
+      }));
+      const product = prodMetrics.map((m) => ({
+        ...m,
+        evidenceTag: metricEvidenceTag(m.metric, m.context),
+      }));
+      const data = { operations, product, anonymizationNotice };
       return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data };
     }
 
@@ -445,23 +491,7 @@ Focus options support recruiter shorthand and conversational AI aliases:
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
   async ({ focus, format }) => {
-    const normalizedFocus =
-      focus === "conversational-ai-pm"
-        ? "ai-pm"
-        : focus === "conversational-ai-ux-design"
-          ? "ux-ai"
-          : focus === "general-ai-product"
-            ? "general-ai"
-            : focus;
-
-    const focusLabels: Record<string, string> = {
-      "founding-pm": "Founding PM",
-      "head-of-product": "Head of Product",
-      "ai-pm": "AI Product Manager",
-      "ux-ai": "Conversational AI UX Design",
-      "healthcare-ai": "Healthcare AI Product Lead",
-      "general-ai": "General AI Product",
-    };
+    const normalizedFocus = normalizeRoleFocus(focus);
 
     const roleFitByFocus: Record<string, string[]> = {
       "founding-pm": [
@@ -517,7 +547,7 @@ Focus options support recruiter shorthand and conversational AI aliases:
         "AI product leader across product management and UX design with 17 years of high-stakes operating experience and multiple live AI products. Strong in strategy and execution, with depth in conversational AI behavior, trust design, and shipping velocity.",
       focusRequested: focus,
       focusApplied: normalizedFocus,
-      roleLens: focusLabels[normalizedFocus] ?? focusLabels["general-ai"],
+      roleLens: canonicalRoleLabels[normalizedFocus],
       primaryTargetRoles: ["Conversational AI Product Manager", "Conversational AI UX Designer"],
       secondaryTargetRoles: ["AI Product Manager (broader)", "Head of Product (early-stage AI products)"],
       idealEnvironment: "0-to-1 or scaling AI teams where product, design, engineering, and applied AI collaborate tightly.",
@@ -541,10 +571,24 @@ Focus options support recruiter shorthand and conversational AI aliases:
         mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
       },
       anonymizationNotice,
+      nextStepCTA:
+        "Best next step: email hannah.pagade@gmail.com with the role title and job description for a tailored resume and conversation packet, or connect on LinkedIn at https://www.linkedin.com/in/hannah-pagade.",
     };
 
     if (format === "json") {
       return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data };
+    }
+
+    if ((format as string) === "summary") {
+      const summary = `# Hiring Summary — ${profile.name}
+
+- Focus requested: ${focus}
+- Focus applied: ${data.roleLens}
+- Top proof points: ${data.topProofPoints.join(" | ")}
+- Availability: ${data.availability}
+- Location: ${data.location} (Relocation: ${data.relocation.openToRelocation ? "Yes" : "No"})
+- Next step: ${data.nextStepCTA}`;
+      return { content: [{ type: "text", text: summary }], structuredContent: data };
     }
 
     const md = `# Hiring Brief — ${profile.name}
@@ -589,7 +633,10 @@ ${data.suggestedInterviewTopics.map((x) => `- ${x}`).join("\n")}
 ## Notes
 - ${data.anonymizationNotice}
 - Profile data last updated: ${data.freshness.profileDataLastUpdated}
-- MCP content set last updated: ${data.freshness.mcpContentSetLastUpdated}`;
+- MCP content set last updated: ${data.freshness.mcpContentSetLastUpdated}
+
+## Recommended Next Step
+${data.nextStepCTA}`;
 
     return { content: [{ type: "text", text: md }], structuredContent: data };
   }
@@ -617,17 +664,34 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
       company: z.string().min(1).max(100).describe("The company name"),
       jobDescription: z.string().min(50).max(4000).describe("The job description to tailor toward"),
       roleType: z
-        .enum(["pm", "ux-design", "founding-pm", "head-of-product", "conversational-ai", "healthcare-ai", "general"])
-        .default("general")
+        .enum([
+          "founding-pm",
+          "head-of-product",
+          "ai-pm",
+          "ux-ai",
+          "healthcare-ai",
+          "general-ai",
+          "conversational-ai-pm",
+          "conversational-ai-ux-design",
+          "general-ai-product",
+          "pm",
+          "ux-design",
+          "conversational-ai",
+          "general",
+        ])
+        .default("general-ai")
         .describe("Role type to optimize framing for"),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
   async ({ jobTitle, company, jobDescription, roleType }) => {
+    const normalizedRoleType = normalizeRoleFocus(roleType);
+    const roleLensLabel = canonicalRoleLabels[normalizedRoleType];
     const systemLines = [
       "You are generating a tailored resume for Hannah Kraulik Pagade. Use ONLY the verified data provided. Do not invent metrics, employers, dates, or accomplishments not listed here. Your job is to rewrite and optimize language and ordering only.",
       "",
       "POSITIONING: " + profile.positioning,
+      "ROLE LENS: " + roleLensLabel,
       "YEARS: " + profile.background.yearsExperience + " years (2009 to present)",
       "BACKGROUND: " + profile.background.summary,
       "LEADERSHIP: " + profile.background.leadershipDepth,
@@ -666,6 +730,9 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
       company +
       ". Role type: " +
       roleType +
+      " (normalized role lens: " +
+      roleLensLabel +
+      ")" +
       ".\n\nJob Description:\n" +
       jobDescription +
       "\n\nFormat: Summary, Skills, Experience, Projects, Education. Write the summary in first person, warm and direct. Keep bullet points concise and impact-focused. End with: 'Full downloadable PDF available at hannahkraulikpagade.com/resume-builder'" +

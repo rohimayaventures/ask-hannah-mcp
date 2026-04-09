@@ -41,6 +41,8 @@ An MCP (Model Context Protocol) server that lets any recruiter or hiring manager
 
 ## Recruiter Quick Start
 
+Start here first: run `hannah_get_hiring_brief` before any other tool.
+
 Use these prompts to evaluate fit quickly:
 
 - "Give me a 60-second hiring brief for `conversational-ai-pm`."
@@ -60,6 +62,24 @@ Supported hiring-brief focus values:
 - `conversational-ai-pm`
 - `conversational-ai-ux-design`
 - `general-ai-product`
+
+Canonical role lenses used internally:
+
+- `ai-pm` (aliases: `conversational-ai-pm`, `pm`, `conversational-ai`)
+- `ux-ai` (aliases: `conversational-ai-ux-design`, `ux-design`)
+- `general-ai` (aliases: `general-ai-product`, `general`)
+- `founding-pm`, `head-of-product`, `healthcare-ai`
+
+Use `format: "summary"` on `hannah_get_hiring_brief` for a compact decision view.
+
+Concrete example (tool arguments):
+
+```json
+{
+  "focus": "conversational-ai-pm",
+  "format": "summary"
+}
+```
 
 ## 2-Minute Evaluation Flow
 

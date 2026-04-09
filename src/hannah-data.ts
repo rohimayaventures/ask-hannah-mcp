@@ -227,7 +227,7 @@ export const projects = [
     tags: ["MCP", "PORTFOLIO", "INTERACTIVE", "DEVELOPER-TOOLING"],
     role: "Product Lead, MCP Architect, Full-Stack Implementation",
     timeline: "April 2026",
-    summary: "A publicly shareable MCP server that lets any recruiter or hiring manager add a URL to their Claude and query Hannah's work, background, metrics, projects, voice answers, hiring FAQs, and generate tailored resumes and cover letters in natural language. Nine structured tools. The same data powers the portfolio widget at hannahkraulikpagade.com.",
+    summary: "A publicly shareable MCP server that lets any recruiter or hiring manager add a URL to their Claude and query Hannah's work, background, metrics, projects, voice answers, hiring FAQs, and generate tailored resumes and cover letters in natural language. Ten structured tools. The same data powers the portfolio widget at hannahkraulikpagade.com.",
     stack: { highlighted: ["TypeScript", "MCP SDK", "Express", "Zod", "Railway"], standard: ["Anthropic SDK"] },
     keyOutcome: "In active development. Demonstrates MCP protocol fluency, structured data tool design, and a genuinely novel job search leave-behind strategy.",
   },
