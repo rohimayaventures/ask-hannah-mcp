@@ -182,7 +182,7 @@ export const projects = [
     timeline: "March 2026",
     summary: "Enterprise NLU routing simulator for a fictional financial services contact center. One utterance produces simultaneous IVR, chatbot, and agent assist outputs via SSE streaming. Five sentiment states drive a full UI retheme. Three critical overrides fire before general intent classification: bereavement, fraud, barge-in. Not healthcare. Pure enterprise conversational AI and financial services UX.",
     stack: { highlighted: ["Next.js 15", "Claude API", "OpenAI Whisper STT", "OpenAI TTS", "Vercel"], standard: ["TypeScript", "Tailwind CSS v4", "SSE streaming", "React 19"] },
-    designSystem: "Vestara Institutional — five sentiment-driven themes via data-sentiment CSS tokens: neutral teal, concerned amber, distressed purple, urgent red, confused blue",
+    designSystem: "Vestara Institutional - five sentiment-driven themes via data-sentiment CSS tokens: neutral teal, concerned amber, distressed purple, urgent red, confused blue",
     keyOutcome: "Live conversational design lab. Three-channel simultaneous output, emotional sensitivity overrides, compliance flag detection, full NLU intent taxonomy across 18 intents.",
   },
   {
@@ -221,15 +221,17 @@ export const projects = [
     name: "Ask Hannah MCP Server",
     domain: "Developer Tooling / Portfolio Technology",
     tagline: "An interactive portfolio that lives inside your AI tools.",
-    status: "building",
-    liveUrl: null,
+    status: "live",
+    liveUrl: "https://ask-hannah-mcp-production.up.railway.app",
     caseStudyUrl: null,
     tags: ["MCP", "PORTFOLIO", "INTERACTIVE", "DEVELOPER-TOOLING"],
     role: "Product Lead, MCP Architect, Full-Stack Implementation",
     timeline: "April 2026",
-    summary: "A publicly shareable MCP server that lets any recruiter or hiring manager add a URL to their Claude and query Hannah's work, background, metrics, projects, voice answers, hiring FAQs, and generate tailored resumes and cover letters in natural language. Ten structured tools. The same data powers the portfolio widget at hannahkraulikpagade.com.",
+    summary:
+      "A publicly shareable MCP server that lets any recruiter or hiring manager add a URL to their Claude and query Hannah's work, background, metrics, projects, voice answers, hiring FAQs, role-focused hiring briefs (including summary mode), and generate tailored resumes and cover letters in natural language. Ten structured tools. The same data powers the portfolio widget at hannahkraulikpagade.com.",
     stack: { highlighted: ["TypeScript", "MCP SDK", "Express", "Zod", "Railway"], standard: ["Anthropic SDK"] },
-    keyOutcome: "In active development. Demonstrates MCP protocol fluency, structured data tool design, and a genuinely novel job search leave-behind strategy.",
+    keyOutcome:
+      "Live on Railway with HTTP MCP transport, health and root diagnostics, and automated tests. Demonstrates MCP protocol fluency, structured tool design, trust metadata on metrics, recruiter conversion paths (Calendly, LinkedIn, email), and a job search leave-behind that runs inside the tools hiring teams already use.",
   },
 ];
 
