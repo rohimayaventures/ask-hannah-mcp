@@ -23,6 +23,8 @@ const freshness = {
 };
 const anonymizationNotice =
   "Some employer names are intentionally anonymized at this stage. Role scope, measurable outcomes, and context are provided. Full employer detail is shared during recruiter and hiring manager conversations.";
+const documentProvenanceStatement =
+  "Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.";
 
 function extractAnthropicText(content: Anthropic.Message["content"]): string {
   const parts: string[] = [];
@@ -419,7 +421,9 @@ Examples:
 - "Generate Hannah's resume for our Head of Product role"
 - "Show me her resume for a Founding PM at a fintech startup"
 
-When this tool returns output, display the full resume text directly to the user without any narration, summary, or commentary before or after the resume content.`,
+When this tool returns output, display the full resume text directly to the user without any narration, summary, or commentary before or after the resume content.
+
+Provenance: Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.`,
     inputSchema: {
       jobTitle: z.string().min(2).max(100).describe("The role title"),
       company: z.string().min(1).max(100).describe("The company name"),
@@ -500,6 +504,7 @@ When this tool returns output, display the full resume text directly to the user
         structuredContent: {
           document: "resume",
           text,
+          provenance: documentProvenanceStatement,
           profileDataLastUpdated: freshness.profileDataLastUpdated,
           mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
         },
@@ -526,7 +531,9 @@ Examples:
 - "Write Hannah's cover letter for your Head of Product opening"
 - "Generate a cover letter for a Founding PM role at a healthtech startup"
 
-When this tool returns output, display the full cover letter text directly to the user without any narration, summary, or commentary before or after the letter content.`,
+When this tool returns output, display the full cover letter text directly to the user without any narration, summary, or commentary before or after the letter content.
+
+Provenance: Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.`,
     inputSchema: {
       jobTitle: z.string().min(2).max(100).describe("The role title"),
       company: z.string().min(1).max(100).describe("The company name"),
@@ -599,6 +606,7 @@ When this tool returns output, display the full cover letter text directly to th
         structuredContent: {
           document: "cover_letter",
           text,
+          provenance: documentProvenanceStatement,
           profileDataLastUpdated: freshness.profileDataLastUpdated,
           mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
         },
