@@ -95,6 +95,8 @@ Concrete example (tool arguments):
 - If resume/cover-letter generation fails, confirm `ANTHROPIC_API_KEY` is present and valid in Railway Variables.
 - If generation returns empty output, retry with a shorter JD (3-6 key requirements instead of full boilerplate).
 - For metric trust details, request JSON from `hannah_get_metrics` and review `evidenceTag` + `confidenceNote`.
+- The root endpoint (`/`) includes `contactHealth.warnings` for non-secret contact/config issues (missing URLs, malformed contact values, etc.).
+- On startup, the server logs non-secret contact/config warnings so invalid settings are visible immediately.
 
 ## Current Capabilities
 
@@ -104,7 +106,7 @@ Concrete example (tool arguments):
 - Freshness metadata is included in outputs and controlled by environment variables.
 - Direct contact conversion supports email, Calendly, optional Zoom booking, LinkedIn, preferred contact method, response-time SLA, timezone, and optional UTM/event suffix controls.
 
-## Contact Conversion Setup (Phase 4)
+## Contact Conversion Setup
 
 Set these in Railway Variables to enable direct recruiter contact conversion:
 

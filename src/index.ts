@@ -28,7 +28,7 @@ const buildMeta = {
 };
 const contactTrackingSource = process.env.CALENDLY_UTM_SOURCE ?? "ask-hannah-mcp";
 const contactTimezone = process.env.CONTACT_TIMEZONE ?? "America/Denver";
-const bookingCtaLabel = process.env.BOOKING_CTA_LABEL ?? "Book a fit call";
+const bookingCtaLabel = process.env.BOOKING_CTA_LABEL ?? "Book a discovery call";
 const calendlyEventType = process.env.CALENDLY_EVENT_TYPE ?? "";
 const anonymizationNotice =
   "Some employer names are intentionally anonymized at this stage. Role scope, measurable outcomes, and context are provided. Full employer detail is shared during recruiter and hiring manager conversations.";
@@ -162,6 +162,38 @@ if (contactOptions.calendlyUrl && calendlyEventType) {
     contactTrackingSource
   );
 }
+
+function collectContactConfigWarnings() {
+  const warnings: string[] = [];
+
+  if (!contactOptions.email || !contactOptions.email.includes("@")) {
+    warnings.push("CONTACT_EMAIL is missing or does not look valid.");
+  }
+
+  if (!contactOptions.linkedinUrl || !/^https?:\/\//.test(contactOptions.linkedinUrl)) {
+    warnings.push("LINKEDIN_URL is missing or not a valid absolute URL.");
+  }
+
+  if (!contactOptions.calendlyUrl && !contactOptions.zoomBookingUrl) {
+    warnings.push("Neither CALENDLY_URL nor ZOOM_BOOKING_URL is configured. Booking CTA will fall back to email only.");
+  }
+
+  if (contactOptions.calendlyUrl && !/^https?:\/\//.test(contactOptions.calendlyUrl)) {
+    warnings.push("CALENDLY_URL is set but not a valid absolute URL.");
+  }
+
+  if (contactOptions.zoomBookingUrl && !/^https?:\/\//.test(contactOptions.zoomBookingUrl)) {
+    warnings.push("ZOOM_BOOKING_URL is set but not a valid absolute URL.");
+  }
+
+  if (!Number.isFinite(contactOptions.responseTimeHours) || contactOptions.responseTimeHours <= 0) {
+    warnings.push("CONTACT_RESPONSE_TIME_HOURS should be a positive number.");
+  }
+
+  return warnings;
+}
+
+const contactConfigWarnings = collectContactConfigWarnings();
 
 // ── Tool 1: hannah_get_profile ───────────────────────────────────────────────
 
@@ -1221,6 +1253,8 @@ async function runHTTP(): Promise<void> {
       hasLinkedIn: Boolean(contactOptions.linkedinUrl),
       preferredContactMethod: contactOptions.preferredContactMethod,
       timezone: contactOptions.timezone,
+      hasWarnings: contactConfigWarnings.length > 0,
+      warnings: contactConfigWarnings,
     };
     res.json({
       name: "Ask Hannah MCP Server",
@@ -1252,6 +1286,12 @@ async function runHTTP(): Promise<void> {
   app.listen(port, () => {
     console.error(`Ask Hannah MCP Server running on port ${port}`);
     console.error(`MCP endpoint: http://localhost:${port}/mcp`);
+    if (contactConfigWarnings.length > 0) {
+      console.error("Contact config warnings:");
+      for (const warning of contactConfigWarnings) {
+        console.error(`- ${warning}`);
+      }
+    }
   });
 }
 
