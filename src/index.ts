@@ -407,7 +407,190 @@ Return the answer text directly without adding any framing or preamble before it
   }
 );
 
-// ── Tool 8: hannah_generate_resume ───────────────────────────────────────────
+// ── Tool 8: hannah_get_hiring_brief ──────────────────────────────────────────
+
+server.registerTool(
+  "hannah_get_hiring_brief",
+  {
+    title: "Get Hannah's Hiring Brief",
+    description: `Returns a recruiter-optimized one-page hiring brief for Hannah Kraulik Pagade with role-specific fit, strongest proof points, links, and interview angles.
+
+Use this as the first tool when screening Hannah for a specific role focus.
+
+Focus options support recruiter shorthand and conversational AI aliases:
+- founding-pm, head-of-product, ai-pm, ux-ai, healthcare-ai, general-ai
+- conversational-ai-pm, conversational-ai-ux-design, general-ai-product`,
+    inputSchema: {
+      focus: z
+        .enum([
+          "founding-pm",
+          "head-of-product",
+          "ai-pm",
+          "ux-ai",
+          "healthcare-ai",
+          "general-ai",
+          "conversational-ai-pm",
+          "conversational-ai-ux-design",
+          "general-ai-product",
+        ])
+        .default("general-ai")
+        .describe("Role focus lens for the hiring brief."),
+      format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async ({ focus, format }) => {
+    const normalizedFocus =
+      focus === "conversational-ai-pm"
+        ? "ai-pm"
+        : focus === "conversational-ai-ux-design"
+          ? "ux-ai"
+          : focus === "general-ai-product"
+            ? "general-ai"
+            : focus;
+
+    const focusLabels: Record<string, string> = {
+      "founding-pm": "Founding PM",
+      "head-of-product": "Head of Product",
+      "ai-pm": "AI Product Manager",
+      "ux-ai": "Conversational AI UX Design",
+      "healthcare-ai": "Healthcare AI Product Lead",
+      "general-ai": "General AI Product",
+    };
+
+    const roleFitByFocus: Record<string, string[]> = {
+      "founding-pm": [
+        "Demonstrated 0-to-1 execution and shipping velocity across multiple live products.",
+        "Hands-on product, UX, and implementation depth with founder-level ownership.",
+        "Comfort operating in ambiguity with fast prioritization and clear scope control.",
+      ],
+      "head-of-product": [
+        "Strong mix of strategy and execution with measurable outcomes across operations and product.",
+        "Cross-functional leadership depth with high-stakes decision making and stakeholder alignment.",
+        "Builds trust architectures, delivery systems, and product quality standards teams can scale.",
+      ],
+      "ai-pm": [
+        "Shipped AI-first products with clear safety, evaluation, and trust constraints.",
+        "Translates user need into product behavior, prioritization, and measurable outcomes.",
+        "Understands model behavior, prompt architecture, and real-world deployment trade-offs.",
+      ],
+      "ux-ai": [
+        "Deep conversation design practice across IVR, chatbot, and agent-assist contexts.",
+        "Designs for trust, escalation, and failure handling, not just happy paths.",
+        "Combines UX research methods with implementation realism for production-ready AI flows.",
+      ],
+      "healthcare-ai": [
+        "17-year clinical operations background plus shipped healthcare AI products.",
+        "Strong safety and escalation mindset for high-risk, regulated environments.",
+        "Balances product usability with clinical reliability and compliance expectations.",
+      ],
+      "general-ai": [
+        "Broad AI product leadership across healthcare, fintech, enterprise, and workforce technology.",
+        "Can lead strategy and execution from concept through launch and iteration.",
+        "Grounded in measurable impact, not speculative claims.",
+      ],
+    };
+
+    const liveProjects = projects.filter((p) => p.status === "live");
+    const topLiveLinks = liveProjects.slice(0, 3).map((p) => ({ name: p.name, url: p.liveUrl, summary: p.summary }));
+    const topProofPoints = [
+      metrics.operations[0]?.metric,
+      metrics.product[2]?.metric,
+      metrics.product[3]?.metric,
+    ].filter(Boolean) as string[];
+
+    const interviewTopics = [
+      "How Hannah designs escalation logic, safety boundaries, and refusal behavior in conversational AI.",
+      "How she prioritizes what ships in the first version versus later iterations.",
+      "How she aligns design, engineering, and product decisions without relying on formal authority.",
+      "How she validates quality with structured research and real-world evaluation loops.",
+      "How she handles regulated-domain trade-offs between speed, trust, and compliance.",
+    ];
+
+    const data = {
+      candidateSnapshot:
+        "AI product leader across product management and UX design with 17 years of high-stakes operating experience and multiple live AI products. Strong in strategy and execution, with depth in conversational AI behavior, trust design, and shipping velocity.",
+      focusRequested: focus,
+      focusApplied: normalizedFocus,
+      roleLens: focusLabels[normalizedFocus] ?? focusLabels["general-ai"],
+      primaryTargetRoles: ["Conversational AI Product Manager", "Conversational AI UX Designer"],
+      secondaryTargetRoles: ["AI Product Manager (broader)", "Head of Product (early-stage AI products)"],
+      idealEnvironment: "0-to-1 or scaling AI teams where product, design, engineering, and applied AI collaborate tightly.",
+      whyConversationalAISpecific: [
+        "Conversation design depth across triage, enterprise routing, and multi-channel interaction models.",
+        "Trust and safety systems include escalation logic, urgency classification, guardrails, and validation patterns.",
+        "Shipped measurable conversational outcomes, including turn reduction and production deployment under real constraints.",
+      ],
+      roleSpecificStrengths: roleFitByFocus[normalizedFocus] ?? roleFitByFocus["general-ai"],
+      topProofPoints,
+      availability: profile.availability,
+      location: profile.location,
+      relocation: {
+        openToRelocation: profile.openToRelocation,
+        preferredLocations: profile.preferredLocations,
+      },
+      liveLinks: topLiveLinks,
+      suggestedInterviewTopics: interviewTopics,
+      freshness: {
+        profileDataLastUpdated: freshness.profileDataLastUpdated,
+        mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
+      },
+      anonymizationNotice,
+    };
+
+    if (format === "json") {
+      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data };
+    }
+
+    const md = `# Hiring Brief — ${profile.name}
+
+## Candidate Snapshot
+${data.candidateSnapshot}
+
+## Role Focus
+Requested: ${focus}
+Applied lens: ${data.roleLens}
+
+## Primary Target Roles
+${data.primaryTargetRoles.map((r) => `- ${r}`).join("\n")}
+
+## Secondary Target Roles
+${data.secondaryTargetRoles.map((r) => `- ${r}`).join("\n")}
+
+## Ideal Environment
+${data.idealEnvironment}
+
+## Why This Candidate for Conversational AI Specifically
+${data.whyConversationalAISpecific.map((x) => `- ${x}`).join("\n")}
+
+## Role-Specific Strengths
+${data.roleSpecificStrengths.map((x) => `- ${x}`).join("\n")}
+
+## Top Proof Points
+${data.topProofPoints.map((x) => `- ${x}`).join("\n")}
+
+## Availability and Location
+- Availability: ${data.availability}
+- Location: ${data.location}
+- Open to relocation: ${data.relocation.openToRelocation ? "Yes" : "No"}
+- Preferred locations: ${data.relocation.preferredLocations.join(", ")}
+
+## Live Links
+${data.liveLinks.map((x) => `- ${x.name}: ${x.url}`).join("\n")}
+
+## Suggested Interview Topics
+${data.suggestedInterviewTopics.map((x) => `- ${x}`).join("\n")}
+
+## Notes
+- ${data.anonymizationNotice}
+- Profile data last updated: ${data.freshness.profileDataLastUpdated}
+- MCP content set last updated: ${data.freshness.mcpContentSetLastUpdated}`;
+
+    return { content: [{ type: "text", text: md }], structuredContent: data };
+  }
+);
+
+// ── Tool 9: hannah_generate_resume ───────────────────────────────────────────
 
 server.registerTool(
   "hannah_generate_resume",
@@ -519,7 +702,7 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
   }
 );
 
-// ── Tool 9: hannah_generate_cover_letter ─────────────────────────────────────
+// ── Tool 10: hannah_generate_cover_letter ────────────────────────────────────
 
 server.registerTool(
   "hannah_generate_cover_letter",
@@ -640,6 +823,7 @@ async function runHTTP(): Promise<void> {
         "hannah_get_skills",
         "hannah_get_voice",
         "hannah_answer_question",
+        "hannah_get_hiring_brief",
         "hannah_generate_resume",
         "hannah_generate_cover_letter",
       ],
