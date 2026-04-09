@@ -181,7 +181,7 @@ export const projects = [
     role: "Conversation Design Lead, Prompt Architect, Full-Stack Implementation",
     timeline: "March 2026",
     summary: "Enterprise NLU routing simulator for a fictional financial services contact center. One utterance produces simultaneous IVR, chatbot, and agent assist outputs via SSE streaming. Five sentiment states drive a full UI retheme. Three critical overrides fire before general intent classification: bereavement, fraud, barge-in. Not healthcare. Pure enterprise conversational AI and financial services UX.",
-    stack: { highlighted: ["Next.js 15", "Claude API", "OpenAI Whisper STT", "OpenAI TTS", "Vercel"], standard: ["TypeScript", "Tailwind CSS v4", "SSE streaming", "React 19"] },
+    stack: { highlighted: ["Next.js 16", "Claude API", "OpenAI Whisper STT", "OpenAI TTS", "Vercel"], standard: ["TypeScript", "Tailwind CSS v4", "SSE streaming", "React 19"] },
     designSystem: "Vestara Institutional - five sentiment-driven themes via data-sentiment CSS tokens: neutral teal, concerned amber, distressed purple, urgent red, confused blue",
     keyOutcome: "Live conversational design lab. Three-channel simultaneous output, emotional sensitivity overrides, compliance flag detection, full NLU intent taxonomy across 18 intents.",
   },
