@@ -9,6 +9,7 @@ import {
   getFreshness,
   getServiceMeta,
 } from "./lib/contact.js";
+import { mcpPostRateLimiter } from "./lib/mcp-rate-limit.js";
 import { canonicalRoleLabels, normalizeRoleFocus, type CanonicalRoleFocus } from "./lib/roles.js";
 import { handleCoverLetterGeneration, handleResumeGeneration } from "./tool-handlers/generation.js";
 import { handleGetMetrics } from "./tool-handlers/metrics.js";
@@ -961,6 +962,9 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
 
 async function runHTTP(): Promise<void> {
   const app = express();
+  if (process.env.TRUST_PROXY !== "0") {
+    app.set("trust proxy", 1);
+  }
   app.use(express.json());
 
   app.get("/health", (_req: Request, res: Response) => {
@@ -1012,7 +1016,7 @@ async function runHTTP(): Promise<void> {
     });
   });
 
-  app.post("/mcp", async (req: Request, res: Response) => {
+  app.post("/mcp", mcpPostRateLimiter(), async (req: Request, res: Response) => {
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,

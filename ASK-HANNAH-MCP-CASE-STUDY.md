@@ -154,6 +154,13 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 - Railway deployment with auto-redeploy on push to main
 - Stateless architecture: zero database, zero session state, full reset on redeploy
 - Automated tests for role normalization, contact URL handling, and metric tagging (`npm test`); sample JSON shapes documented in-repo for regression clarity
+- Resume and cover letter generation: Anthropic model IDs configurable via environment (per tool or shared fallback), automatic retries with exponential backoff on transient API errors, structured one-line JSON logs on stderr per generation call (durations and string lengths only, never job description body text), optional per-IP sliding-window rate limit on `POST /mcp`, and `trust proxy` enabled by default for correct client IP behind Railway
+
+### Generation hardening roadmap
+
+- **Phase 0 (shipped):** Operational controls for generation and the MCP HTTP surface: model env vars, retries, stderr telemetry, optional `/mcp` rate limit, proxy-aware client IP.
+- **Phase 1 (next):** Job description compression or extraction before generation to reduce tokens and tighten tailoring.
+- **Phases 2–5:** Structured document schemas with deterministic rendering, a verification pass against allowed facts, ATS-oriented modes, and optional export or handoff to the portfolio resume builder. The repository README tracks the full sequence as each phase lands.
 
 ---
 
@@ -167,7 +174,7 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | Data layer | `hannah-data.ts` (compile-time) | Stateless by design; no database needed for read-only professional data |
 | Code organization | `src/lib`, `src/tool-handlers` | Shared helpers and tool handlers separated from the server entrypoint for safer iteration |
 | Input validation | Zod | Schema enforcement on all tool inputs before handler execution |
-| AI generation | Anthropic Claude API (Sonnet) | Resume and cover letter generation; strict output contract via prompts; standardized errors on failure |
+| AI generation | Anthropic Messages API (model via env; default Sonnet-class) | Resume and cover letter text generation; strict output contract via prompts; retries on transient API failures; structured stderr telemetry (no JD content); standardized errors on failure |
 | Deployment | Railway | Auto-deploy on push; free tier sufficient for a low-traffic professional tool; public URL with HTTPS |
 | MCP framework | @modelcontextprotocol/sdk | Official SDK; most compatible with evolving Claude.ai connector spec |
 
@@ -190,7 +197,7 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | `hannah-data.ts` correctness | Working | 17 years, six domains, four live product sites plus Ask Hannah MCP live on Railway, correct metrics |
 | LaidOffRise MCP listing | Working | Listed in project data as building. Server designed and architected, not yet deployed. |
 | EclipseLink in project list | Not included | Intentionally omitted. EclipseLink is in early development and is not portfolio-ready. Generation prompts are already instructed not to mention it. |
-| Rate limiting | Not implemented | Low-traffic use case; Railway restarts handle abuse recovery; acceptable for current scope |
+| Rate limiting | Optional | Off by default. Optional sliding-window limit on `POST /mcp` via environment variables for abuse protection; generation remains unauthenticated public data |
 | Authentication | Not implemented | Intentional: public professional data does not require auth; adds friction for the hiring audience |
 
 ---
@@ -227,7 +234,7 @@ Any hiring manager with a Claude.ai account can connect this server right now an
 ### Honest summary
 
 **Technical understanding:**
-Understands MCP transport architecture well enough to identify and fix the stdio versus public HTTP mismatch that blocked registration. Applied strict generation contracts and standardized error handling to resume and cover letter tools. Refactored into modules with tests so changes do not regress silently. Stateless by design was a conscious tradeoff, not a gap.
+Understands MCP transport architecture well enough to identify and fix the stdio versus public HTTP mismatch that blocked registration. Applied strict generation contracts and standardized error handling to resume and cover letter tools. Phase 0 generation operations add env-configurable models, bounded retries on transient API failures, privacy-safe stderr telemetry (lengths and timings, not job description text), and an optional `/mcp` rate limit behind Railway-friendly proxy trust settings. Refactored into modules with tests so changes do not regress silently. Stateless by design was a conscious tradeoff, not a gap.
 
 **Product understanding:**
 Scoped out a fit-scoring tool that would have been technically interesting but created product liability in a job search context. Made the voice tool distinct from the profile tool because the downstream synthesis use case for each is different. Added a hiring brief and conversion path so screening does not dead-end after reading. Designed for a specific user journey: hiring manager opens Claude, connects the server, asks questions, gets grounded answers, moves to outreach.
@@ -241,7 +248,7 @@ Hannah built a live MCP server, deployed it to production, registered it as a Cl
 
 ### One honest line for technical interviews
 
-Ten MCP tools over HTTP with Zod input validation, strict generation contracts, streamable MCP transport, modular handlers, automated tests, stateless Railway deployment, and a TypeScript data module that is the single source of truth for professional content.
+Ten MCP tools over HTTP with Zod input validation, strict generation contracts, streamable MCP transport, modular handlers, automated tests, stateless Railway deployment, generation ops defaults (configurable models, retries, structured logs without JD content, optional rate limit), and a TypeScript data module that is the single source of truth for professional content.
 
 ### One honest line for product interviews
 

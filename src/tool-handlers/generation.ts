@@ -1,6 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { messagesCreateWithRetry, getAnthropicErrorStatus } from "../lib/anthropic-retry.js";
+import {
+  buildGenerationError,
+  extractAnthropicText,
+  getGenerationFailureCode,
+} from "../lib/generation.js";
+import { logGenerationTelemetry } from "../lib/generation-telemetry.js";
+import { getCoverLetterGenerationModel, getResumeGenerationModel } from "../lib/model-env.js";
 import { canonicalRoleLabels, normalizeRoleFocus } from "../lib/roles.js";
-import { buildGenerationError, extractAnthropicText } from "../lib/generation.js";
 
 type Freshness = {
   profileDataLastUpdated: string;
@@ -78,16 +85,34 @@ export async function handleResumeGeneration(
     "\n\nFormat: Summary, Skills, Experience, Projects, Education. Write the summary in first person, warm and direct. Keep bullet points concise and impact-focused. End with: 'Full downloadable PDF available at hannahkraulikpagade.com/resume-builder'" +
     "\n\nReply with the resume only — no other words before or after it.";
 
+  const model = getResumeGenerationModel();
+  const jdChars = jobDescription.length;
+  const companyChars = company.length;
+  const jobTitleChars = jobTitle.length;
+  const started = Date.now();
+
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const { response, attempts } = await messagesCreateWithRetry(anthropic, {
+      model,
       max_tokens: 4096,
+      stream: false,
       system: systemLines.join("\n"),
       messages: [{ role: "user", content: userPrompt }],
     });
 
     const text = extractAnthropicText(response.content);
     if (!text) {
+      logGenerationTelemetry({
+        tool: "resume",
+        ok: false,
+        durationMs: Date.now() - started,
+        jdChars,
+        companyChars,
+        jobTitleChars,
+        model,
+        attempts,
+        errorCode: "ERR_RESUME_EMPTY",
+      });
       return {
         isError: true,
         content: [{
@@ -96,6 +121,17 @@ export async function handleResumeGeneration(
         }],
       };
     }
+
+    logGenerationTelemetry({
+      tool: "resume",
+      ok: true,
+      durationMs: Date.now() - started,
+      jdChars,
+      companyChars,
+      jobTitleChars,
+      model,
+      attempts,
+    });
 
     return {
       content: [{ type: "text" as const, text }],
@@ -108,6 +144,17 @@ export async function handleResumeGeneration(
       },
     };
   } catch (err) {
+    logGenerationTelemetry({
+      tool: "resume",
+      ok: false,
+      durationMs: Date.now() - started,
+      jdChars,
+      companyChars,
+      jobTitleChars,
+      model,
+      errorCode: getGenerationFailureCode(err),
+      httpStatus: getAnthropicErrorStatus(err),
+    });
     return {
       isError: true,
       content: [{ type: "text" as const, text: buildGenerationError("resume", err) }],
@@ -162,16 +209,34 @@ export async function handleCoverLetterGeneration(
     "\n\nMake it warm, direct, and specific to this role. First paragraph: who she is and why this role specifically. Second paragraph: the most relevant proof from her background. Third paragraph: what she brings to the team and a clear call to action. Sign off as Hannah Kraulik Pagade." +
     "\n\nReply with the letter only — no other words before or after it.";
 
+  const model = getCoverLetterGenerationModel();
+  const jdChars = jobDescription.length;
+  const companyChars = company.length;
+  const jobTitleChars = jobTitle.length;
+  const started = Date.now();
+
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const { response, attempts } = await messagesCreateWithRetry(anthropic, {
+      model,
       max_tokens: 2000,
+      stream: false,
       system: systemLines.join("\n"),
       messages: [{ role: "user", content: userPrompt }],
     });
 
     const text = extractAnthropicText(response.content);
     if (!text) {
+      logGenerationTelemetry({
+        tool: "cover_letter",
+        ok: false,
+        durationMs: Date.now() - started,
+        jdChars,
+        companyChars,
+        jobTitleChars,
+        model,
+        attempts,
+        errorCode: "ERR_COVER_LETTER_EMPTY",
+      });
       return {
         isError: true,
         content: [{
@@ -180,6 +245,17 @@ export async function handleCoverLetterGeneration(
         }],
       };
     }
+
+    logGenerationTelemetry({
+      tool: "cover_letter",
+      ok: true,
+      durationMs: Date.now() - started,
+      jdChars,
+      companyChars,
+      jobTitleChars,
+      model,
+      attempts,
+    });
 
     return {
       content: [{ type: "text" as const, text }],
@@ -192,6 +268,17 @@ export async function handleCoverLetterGeneration(
       },
     };
   } catch (err) {
+    logGenerationTelemetry({
+      tool: "cover_letter",
+      ok: false,
+      durationMs: Date.now() - started,
+      jdChars,
+      companyChars,
+      jobTitleChars,
+      model,
+      errorCode: getGenerationFailureCode(err),
+      httpStatus: getAnthropicErrorStatus(err),
+    });
     return {
       isError: true,
       content: [{ type: "text" as const, text: buildGenerationError("cover_letter", err) }],

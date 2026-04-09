@@ -30,6 +30,18 @@ An MCP (Model Context Protocol) server that helps recruiters and hiring managers
 - Profile data last updated: sourced from `PROFILE_DATA_LAST_UPDATED` (falls back to a default in `src/hannah-data.ts`)
 - MCP content set last updated: sourced from `MCP_CONTENT_SET_LAST_UPDATED` (falls back to current UTC date at runtime)
 
+## Resume and cover letter generation (operations)
+
+Generation tools call the Anthropic Messages API with **non-streaming** requests. Operational behavior:
+
+- **Model selection:** `ANTHROPIC_MODEL_RESUME` and `ANTHROPIC_MODEL_COVER_LETTER` override the model per tool; if unset, `ANTHROPIC_MODEL` applies to both; if that is unset, the server uses the default in `src/lib/model-env.ts` (currently `claude-sonnet-4-20250514`).
+- **Retries:** Transient failures (for example 429, timeouts, connection resets) retry with exponential backoff. Tune with `ANTHROPIC_RETRY_MAX_ATTEMPTS` (default `3`) and `ANTHROPIC_RETRY_BASE_MS` (default `1000`).
+- **Telemetry:** Each generation attempt emits **one JSON line on stderr** with `event: "generation"`, tool name, `ok`, `durationMs`, character counts for job title, company, and job description (lengths only—**never the JD text**), `model`, optional `attempts`, and on failure `errorCode` / `httpStatus` when available. Point Railway log drains at these lines for dashboards.
+- **Rate limiting (optional):** Set `MCP_RATE_LIMIT_ENABLED=1` to enable a sliding-window cap on **`POST /mcp`** per client IP (`MCP_RATE_LIMIT_MAX`, default `120`; `MCP_RATE_LIMIT_WINDOW_MS`, default `60000`). Disabled by default so normal Claude connector traffic is unaffected.
+- **Proxy IP:** By default the server sets Express `trust proxy` to `1` so `X-Forwarded-For` works on Railway. Set `TRUST_PROXY=0` to disable.
+
+See `ASK-HANNAH-MCP-CASE-STUDY.md` (Section 4, Generation hardening roadmap) for planned Phase 1+ work (JD extraction, structured documents, verification, export).
+
 ## Example Questions to Ask Claude
 
 - "Who is Hannah Kraulik Pagade and what is she looking for?"
@@ -92,7 +104,7 @@ Concrete example (tool arguments):
 
 - If Claude summarizes tool output instead of showing it directly, prompt: "Paste the tool output only with no extra commentary."
 - If connector setup fails, confirm your URL ends with `/mcp` and test `https://your-url/health` first.
-- If resume/cover-letter generation fails, confirm `ANTHROPIC_API_KEY` is present and valid in Railway Variables.
+- If resume/cover-letter generation fails, confirm `ANTHROPIC_API_KEY` is present and valid in Railway Variables and that any custom `ANTHROPIC_MODEL*` value is available to your Anthropic account.
 - If generation returns empty output, retry with a shorter JD (3-6 key requirements instead of full boilerplate).
 - For metric trust details, request JSON from `hannah_get_metrics` and review `evidenceTag` + `confidenceNote`.
 - The root endpoint (`/`) includes `contactHealth.warnings` for non-secret contact/config issues (missing URLs, malformed contact values, etc.).
@@ -104,12 +116,12 @@ Concrete example (tool arguments):
 - Hiring briefs now include `scoreRationale`, compact founder-concern coverage in `summary`, proof-source pointers, and optional role-specific 90-day KPI targets.
 - Conversion-oriented hiring summaries include a decision recommendation line and explicit contact fallback order.
 - Metrics JSON includes trust metadata (`evidenceTag` and `confidenceNote`) to speed up screening confidence.
-- Resume and cover-letter tools are constrained to verified source data and return standardized error codes with actionable next steps.
+- Resume and cover-letter tools are constrained to verified source data and return standardized error codes with actionable next steps; the API layer uses configurable models, bounded retries, and structured stderr telemetry (no job description content in logs).
 - Freshness metadata is included in outputs and controlled by environment variables.
 - Direct contact conversion supports email, Calendly, optional Zoom booking, LinkedIn, preferred contact method, response-time SLA, timezone, and optional UTM/event suffix controls.
 - Contact order for recruiter follow-up is explicit: Calendly -> LinkedIn -> Email.
 - Code is modularized for maintainability: role/focus normalization, contact/freshness helpers, and tool handlers are separated under `src/lib` and `src/tool-handlers`.
-- Test coverage exists for role normalization, Calendly URL handling, and metric evidence tagging via `npm test`.
+- Test coverage exists for role normalization, Calendly URL handling, metric evidence tagging, Anthropic retry helpers, and generation model env resolution via `npm test`.
 - Sample tool JSON payloads are documented in `docs/sample-json-outputs.md`.
 
 ## Contact Conversion Setup
@@ -165,7 +177,12 @@ npm test
    - `APP_VERSION` (defaults to `npm_package_version` or `1.0.0`)
    - `BUILD_DATE` (defaults to MCP content-set date)
    - `GIT_SHA` (defaults to `unknown`)
-9. Copy the Railway public URL and add `/mcp` as your Claude connector
+9. Optional generation and HTTP hardening (see `.env.example`):
+   - `ANTHROPIC_MODEL`, `ANTHROPIC_MODEL_RESUME`, `ANTHROPIC_MODEL_COVER_LETTER`
+   - `ANTHROPIC_RETRY_MAX_ATTEMPTS`, `ANTHROPIC_RETRY_BASE_MS`
+   - `TRUST_PROXY` (set to `0` only if you must disable proxy trust)
+   - `MCP_RATE_LIMIT_ENABLED`, `MCP_RATE_LIMIT_MAX`, `MCP_RATE_LIMIT_WINDOW_MS` (off unless you enable the limiter)
+10. Copy the Railway public URL and add `/mcp` as your Claude connector
 
 ## Tech Stack
 
