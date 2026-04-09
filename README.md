@@ -114,6 +114,21 @@ Concrete example (tool arguments):
 - Add optional UTM tracking on contact links for source analytics.
 - Add response-time expectation and preferred contact method to reduce outreach friction.
 
+## Contact Conversion Setup (Phase 4)
+
+Set these in Railway Variables to enable direct recruiter contact conversion:
+
+- `CONTACT_EMAIL`
+- `CALENDLY_URL`
+- `ZOOM_BOOKING_URL` (optional)
+- `LINKEDIN_URL`
+- `PREFERRED_CONTACT_METHOD` (for example `calendly` or `email`)
+- `CONTACT_RESPONSE_TIME_HOURS` (for example `24`)
+- `CALENDLY_UTM_SOURCE` (for source tracking, for example `ask-hannah-mcp`)
+- `CONTACT_TIMEZONE` (for example `America/Denver`)
+- `BOOKING_CTA_LABEL` (for example `Book a fit call`)
+- `CALENDLY_EVENT_TYPE` (optional path suffix for event-specific booking links)
+
 ## Local Development
 
 ```bash

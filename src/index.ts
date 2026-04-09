@@ -26,6 +26,10 @@ const buildMeta = {
   buildDate: process.env.BUILD_DATE ?? freshness.mcpContentSetLastUpdated,
   gitSha: process.env.GIT_SHA ?? "unknown",
 };
+const contactTrackingSource = process.env.CALENDLY_UTM_SOURCE ?? "ask-hannah-mcp";
+const contactTimezone = process.env.CONTACT_TIMEZONE ?? "America/Denver";
+const bookingCtaLabel = process.env.BOOKING_CTA_LABEL ?? "Book a fit call";
+const calendlyEventType = process.env.CALENDLY_EVENT_TYPE ?? "";
 const anonymizationNotice =
   "Some employer names are intentionally anonymized at this stage. Role scope, measurable outcomes, and context are provided. Full employer detail is shared during recruiter and hiring manager conversations.";
 const documentProvenanceStatement =
@@ -129,6 +133,36 @@ function buildGenerationError(kind: "resume" | "cover_letter", err: unknown): st
   return `[${code}] ${label} generation failed: ${message}. ${hint}`;
 }
 
+function addUtmSource(url: string, source: string): string {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("utm_source")) parsed.searchParams.set("utm_source", source);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+const contactOptions = {
+  email: process.env.CONTACT_EMAIL ?? profile.email,
+  calendlyUrl: addUtmSource(process.env.CALENDLY_URL ?? "", contactTrackingSource),
+  zoomBookingUrl: process.env.ZOOM_BOOKING_URL ?? "",
+  linkedinUrl: process.env.LINKEDIN_URL ?? profile.linkedin,
+  preferredContactMethod: process.env.PREFERRED_CONTACT_METHOD ?? "calendly",
+  responseTimeHours: parseInt(process.env.CONTACT_RESPONSE_TIME_HOURS ?? "24", 10),
+  timezone: contactTimezone,
+  bookingCtaLabel,
+  calendlyEventType,
+};
+
+if (contactOptions.calendlyUrl && calendlyEventType) {
+  contactOptions.calendlyUrl = addUtmSource(
+    `${contactOptions.calendlyUrl.replace(/\/$/, "")}/${calendlyEventType}`,
+    contactTrackingSource
+  );
+}
+
 // ── Tool 1: hannah_get_profile ───────────────────────────────────────────────
 
 server.registerTool(
@@ -158,6 +192,7 @@ Examples:
       certifications: profile.certifications,
       targetRoles: profile.targetRoles,
       contact: { email: profile.email, portfolio: profile.portfolio, linkedin: profile.linkedin, github: profile.github },
+      contactOptions,
       compensation: profile.compensation,
       availability: profile.availability,
       profileDataLastUpdated: freshness.profileDataLastUpdated,
@@ -206,6 +241,15 @@ ${profile.compensation}
 - LinkedIn: ${profile.linkedin}
 - GitHub: ${profile.github}
 - Email: ${profile.email}
+
+## Direct Contact Options
+- Preferred contact method: ${contactOptions.preferredContactMethod}
+- Expected response time: within ${contactOptions.responseTimeHours} hours
+- Time zone: ${contactOptions.timezone}
+- Calendly: ${contactOptions.calendlyUrl || "Not configured"}
+- Zoom booking: ${contactOptions.zoomBookingUrl || "Not configured"}
+- LinkedIn: ${contactOptions.linkedinUrl}
+- Email: ${contactOptions.email}
 
 ## Data Freshness
 - Profile data last updated: ${freshness.profileDataLastUpdated}
@@ -750,6 +794,20 @@ Focus options support recruiter shorthand and conversational AI aliases:
         "Now is the right moment because this role benefits from a builder who can move across strategy, UX, and implementation while keeping outcomes measurable and trust-centered.",
     };
 
+    const roleSpecificCallByFocus: Record<CanonicalRoleFocus, string> = {
+      "founding-pm": "0-to-1 product strategy call",
+      "head-of-product": "product leadership fit call",
+      "ai-pm": "AI product manager fit call",
+      "ux-ai": "conversational AI UX design fit call",
+      "healthcare-ai": "healthcare AI product fit call",
+      "general-ai": "AI product fit call",
+    };
+
+    const bookingUrl = contactOptions.calendlyUrl || contactOptions.zoomBookingUrl;
+    const bookingInstruction = bookingUrl
+      ? `${contactOptions.bookingCtaLabel} (${roleSpecificCallByFocus[normalizedFocus]}): ${bookingUrl}`
+      : `Email ${contactOptions.email} with the role title and job description`;
+
     const data = {
       candidateSnapshot:
         "AI product leader across product management and UX design with 17 years of high-stakes operating experience and multiple live AI products. Strong in strategy and execution, with depth in conversational AI behavior, trust design, and shipping velocity.",
@@ -779,13 +837,14 @@ Focus options support recruiter shorthand and conversational AI aliases:
       founderRisksAndMitigations,
       roleScorecard: scorecardByFocus[normalizedFocus],
       first30_60_90: first30_60_90ByFocus[normalizedFocus],
+      contactOptions,
       freshness: {
         profileDataLastUpdated: freshness.profileDataLastUpdated,
         mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
       },
       anonymizationNotice,
       nextStepCTA:
-        "Best next step: email hannah.pagade@gmail.com with the role title and job description for a tailored resume and conversation packet, or connect on LinkedIn at https://www.linkedin.com/in/hannah-pagade.",
+        `Best next step: ${bookingInstruction}. You can also connect on LinkedIn at ${contactOptions.linkedinUrl}. Expected response time is within ${contactOptions.responseTimeHours} hours.`,
     };
 
     if (format === "json") {
@@ -871,6 +930,15 @@ ${data.first30_60_90.day90.map((x) => `- ${x}`).join("\n")}
 - ${data.anonymizationNotice}
 - Profile data last updated: ${data.freshness.profileDataLastUpdated}
 - MCP content set last updated: ${data.freshness.mcpContentSetLastUpdated}
+
+## Contact Options
+- Preferred contact method: ${data.contactOptions.preferredContactMethod}
+- Expected response time: within ${data.contactOptions.responseTimeHours} hours
+- Time zone: ${data.contactOptions.timezone}
+- Calendly: ${data.contactOptions.calendlyUrl || "Not configured"}
+- Zoom booking: ${data.contactOptions.zoomBookingUrl || "Not configured"}
+- LinkedIn: ${data.contactOptions.linkedinUrl}
+- Email: ${data.contactOptions.email}
 
 ## Recommended Next Step
 ${data.nextStepCTA}`;
@@ -1146,6 +1214,14 @@ async function runHTTP(): Promise<void> {
   });
 
   app.get("/", (_req: Request, res: Response) => {
+    const contactHealth = {
+      hasContactEmail: Boolean(contactOptions.email),
+      hasCalendly: Boolean(contactOptions.calendlyUrl),
+      hasZoomBooking: Boolean(contactOptions.zoomBookingUrl),
+      hasLinkedIn: Boolean(contactOptions.linkedinUrl),
+      preferredContactMethod: contactOptions.preferredContactMethod,
+      timezone: contactOptions.timezone,
+    };
     res.json({
       name: "Ask Hannah MCP Server",
       description: "Interactive portfolio for Hannah Kraulik Pagade. Add this URL as a custom MCP connector in Claude to query her background, projects, metrics, skills, voice answers, hiring FAQs, and generate tailored resumes and cover letters.",
@@ -1157,6 +1233,8 @@ async function runHTTP(): Promise<void> {
       gitSha: buildMeta.gitSha,
       profileDataLastUpdated: freshness.profileDataLastUpdated,
       mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
+      contactOptions,
+      contactHealth,
     });
   });
 
