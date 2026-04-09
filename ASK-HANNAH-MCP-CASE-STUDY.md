@@ -143,8 +143,8 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | `hannah_get_voice` | First-person positioning statements in Hannah's voice, organized by question type |
 | `hannah_answer_question` | Pre-written answers to common recruiter and hiring-manager topics from structured FAQ data, selected by topic enum |
 | `hannah_get_hiring_brief` | Recruiter-optimized brief: role focus, proof points, interview prompts, optional summary mode, score rationale, proof-source pointers, 90-day KPI targets, decision recommendation, explicit contact fallback order |
-| `hannah_generate_resume` | Tailored resume text generated from structured data only, scoped to a role type and job description |
-| `hannah_generate_cover_letter` | Tailored cover letter, same data contract as resume generation |
+| `hannah_generate_resume` | Tailored resume text generated from structured data only, scoped to a role type and job description; long postings pass through an LLM JSON extraction step into JOB SIGNALS before the main generation call |
+| `hannah_generate_cover_letter` | Tailored cover letter, same data contract as resume generation, including the same optional JD extraction pipeline |
 
 ### Infrastructure
 
@@ -155,12 +155,14 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 - Stateless architecture: zero database, zero session state, full reset on redeploy
 - Automated tests for role normalization, contact URL handling, and metric tagging (`npm test`); sample JSON shapes documented in-repo for regression clarity
 - Resume and cover letter generation: Anthropic model IDs configurable via environment (per tool or shared fallback), automatic retries with exponential backoff on transient API errors, structured one-line JSON logs on stderr per generation call (durations and string lengths only, never job description body text), optional per-IP sliding-window rate limit on `POST /mcp`, and `trust proxy` enabled by default for correct client IP behind Railway
+- Phase 1 job description pipeline: for postings over a configurable length threshold, a dedicated extractor model emits Zod-validated JSON (role summary, must-haves, skills, constraints, tailoring notes) that is rendered into a compact JOB SIGNALS block for the main generator; failures fall back to a deterministic excerpt. Separate `jd_extract` telemetry lines record extract timing and sizes without logging posting text
 
 ### Generation hardening roadmap
 
 - **Phase 0 (shipped):** Operational controls for generation and the MCP HTTP surface: model env vars, retries, stderr telemetry, optional `/mcp` rate limit, proxy-aware client IP.
-- **Phase 1 (next):** Job description compression or extraction before generation to reduce tokens and tighten tailoring.
-- **Phases 2–5:** Structured document schemas with deterministic rendering, a verification pass against allowed facts, ATS-oriented modes, and optional export or handoff to the portfolio resume builder. The repository README tracks the full sequence as each phase lands.
+- **Phase 1 (shipped):** Job description extraction JSON pass with schema validation, excerpt fallback, dual telemetry streams (`jd_extract` and enriched `generation`), and explicit system-prompt separation between posting-derived signals and verified candidate facts.
+- **Phase 2 (next):** Structured document schemas with deterministic rendering for resume and cover letter outputs.
+- **Phases 3–5:** Verification pass against allowed facts, ATS-oriented modes, and optional export or handoff to the portfolio resume builder. The repository README tracks the full sequence as each phase lands.
 
 ---
 
@@ -174,7 +176,7 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | Data layer | `hannah-data.ts` (compile-time) | Stateless by design; no database needed for read-only professional data |
 | Code organization | `src/lib`, `src/tool-handlers` | Shared helpers and tool handlers separated from the server entrypoint for safer iteration |
 | Input validation | Zod | Schema enforcement on all tool inputs before handler execution |
-| AI generation | Anthropic Messages API (model via env; default Sonnet-class) | Resume and cover letter text generation; strict output contract via prompts; retries on transient API failures; structured stderr telemetry (no JD content); standardized errors on failure |
+| AI generation | Anthropic Messages API (models via env; Sonnet-class defaults for documents, Haiku-class default for JD JSON extract) | Resume and cover letter text generation; optional two-step pipeline with validated JSON extraction for long postings; strict output contract via prompts; retries on transient API failures; structured stderr telemetry for `jd_extract` and `generation` (no posting body in logs); standardized errors on failure |
 | Deployment | Railway | Auto-deploy on push; free tier sufficient for a low-traffic professional tool; public URL with HTTPS |
 | MCP framework | @modelcontextprotocol/sdk | Official SDK; most compatible with evolving Claude.ai connector spec |
 
@@ -187,8 +189,8 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | All 10 tools responding | Working | Verified via `/health` endpoint and live Claude.ai connector testing |
 | HTTP streamable MCP transport | Working | Registered and confirmed in Claude.ai connectors |
 | Railway deployment | Working | Auto-deploys on push to main; Online status confirmed |
-| Resume generation | Working | Strict output contract enforced; tested across multiple role focuses |
-| Cover letter generation | Working | Same contract as resume; tested |
+| Resume generation | Working | Strict output contract enforced; long JDs run through validated JSON extraction into JOB SIGNALS before the main model call; tested across multiple role focuses |
+| Cover letter generation | Working | Same contract and JD extraction pipeline as resume; tested |
 | Hiring brief (including summary mode) | Working | Role focus, proof pointers, decision line, contact fallback order |
 | Voice tool first-person consistency | Working | Verified in live connector testing |
 | Metrics trust metadata | Working | JSON includes `evidenceTag` and `confidenceNote` |
@@ -234,7 +236,7 @@ Any hiring manager with a Claude.ai account can connect this server right now an
 ### Honest summary
 
 **Technical understanding:**
-Understands MCP transport architecture well enough to identify and fix the stdio versus public HTTP mismatch that blocked registration. Applied strict generation contracts and standardized error handling to resume and cover letter tools. Phase 0 generation operations add env-configurable models, bounded retries on transient API failures, privacy-safe stderr telemetry (lengths and timings, not job description text), and an optional `/mcp` rate limit behind Railway-friendly proxy trust settings. Refactored into modules with tests so changes do not regress silently. Stateless by design was a conscious tradeoff, not a gap.
+Understands MCP transport architecture well enough to identify and fix the stdio versus public HTTP mismatch that blocked registration. Applied strict generation contracts and standardized error handling to resume and cover letter tools. Phase 0 generation operations add env-configurable models, bounded retries on transient API failures, privacy-safe stderr telemetry (lengths and timings, not job description text), and an optional `/mcp` rate limit behind Railway-friendly proxy trust settings. Phase 1 adds a validated JSON extraction pass for long job descriptions so the main generator sees compact JOB SIGNALS instead of raw posting walls, with excerpt fallback and separate `jd_extract` logs. Refactored into modules with tests so changes do not regress silently. Stateless by design was a conscious tradeoff, not a gap.
 
 **Product understanding:**
 Scoped out a fit-scoring tool that would have been technically interesting but created product liability in a job search context. Made the voice tool distinct from the profile tool because the downstream synthesis use case for each is different. Added a hiring brief and conversion path so screening does not dead-end after reading. Designed for a specific user journey: hiring manager opens Claude, connects the server, asks questions, gets grounded answers, moves to outreach.
@@ -248,7 +250,7 @@ Hannah built a live MCP server, deployed it to production, registered it as a Cl
 
 ### One honest line for technical interviews
 
-Ten MCP tools over HTTP with Zod input validation, strict generation contracts, streamable MCP transport, modular handlers, automated tests, stateless Railway deployment, generation ops defaults (configurable models, retries, structured logs without JD content, optional rate limit), and a TypeScript data module that is the single source of truth for professional content.
+Ten MCP tools over HTTP with Zod input validation, strict generation contracts, streamable MCP transport, modular handlers, automated tests, stateless Railway deployment, generation ops defaults (configurable models, retries, structured logs without JD content, optional rate limit), a two-step JD extraction pipeline with schema validation for long postings, and a TypeScript data module that is the single source of truth for professional content.
 
 ### One honest line for product interviews
 

@@ -887,6 +887,8 @@ server.registerTool(
     title: "Generate a Tailored Resume for Hannah",
     description: `Generates a tailored resume for Hannah Kraulik Pagade based on a specific job description. Uses only verified profile data. No fabricated metrics or invented employers. Claude rewrites and optimizes language only.
 
+For longer postings, the server first runs a compact JSON extraction pass on the job description (separate model call, configurable via environment) and feeds those JOB SIGNALS into the main generator to save tokens and sharpen tailoring. Short postings pass through verbatim. Disable with JD_EXTRACT_ENABLED=0 if needed.
+
 Use when a recruiter wants Hannah's resume tailored to their specific role.
 
 Examples:
@@ -935,6 +937,8 @@ server.registerTool(
   {
     title: "Generate a Tailored Cover Letter for Hannah",
     description: `Generates a tailored cover letter for Hannah Kraulik Pagade for a specific role and company. Written in Hannah's warm direct first-person voice. Uses only verified profile data.
+
+Longer job descriptions are summarized through the same optional extraction pass as the resume tool (JOB SIGNALS) before the main letter generation call. Short postings pass through verbatim.
 
 Examples:
 - "Write Hannah's cover letter for your Head of Product opening"
