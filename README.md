@@ -84,7 +84,11 @@ npm run dev
 5. Set `BASE_URL` environment variable to your Railway URL
 6. Set `PROFILE_DATA_LAST_UPDATED` to the date your profile data was last refreshed (for example `2026-04-09`)
 7. Optionally set `MCP_CONTENT_SET_LAST_UPDATED` to your deploy date (if not set, it auto-falls back to the current UTC date)
-8. Copy the Railway public URL and add `/mcp` as your Claude connector
+8. Optional metadata:
+   - `APP_VERSION` (defaults to `npm_package_version` or `1.0.0`)
+   - `BUILD_DATE` (defaults to MCP content-set date)
+   - `GIT_SHA` (defaults to `unknown`)
+9. Copy the Railway public URL and add `/mcp` as your Claude connector
 
 ## Tech Stack
 

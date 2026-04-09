@@ -21,6 +21,11 @@ const freshness = {
   profileDataLastUpdated: process.env.PROFILE_DATA_LAST_UPDATED ?? dataFreshness.profileDataLastUpdated,
   mcpContentSetLastUpdated: process.env.MCP_CONTENT_SET_LAST_UPDATED ?? todayUTC,
 };
+const serviceVersion = process.env.APP_VERSION ?? process.env.npm_package_version ?? "1.0.0";
+const buildMeta = {
+  buildDate: process.env.BUILD_DATE ?? freshness.mcpContentSetLastUpdated,
+  gitSha: process.env.GIT_SHA ?? "unknown",
+};
 const anonymizationNotice =
   "Some employer names are intentionally anonymized at this stage. Role scope, measurable outcomes, and context are provided. Full employer detail is shared during recruiter and hiring manager conversations.";
 const documentProvenanceStatement =
@@ -814,7 +819,9 @@ async function runHTTP(): Promise<void> {
     res.json({
       status: "ok",
       server: "ask-hannah-mcp-server",
-      version: "1.0.0",
+      version: serviceVersion,
+      buildDate: buildMeta.buildDate,
+      gitSha: buildMeta.gitSha,
       tools: [
         "hannah_get_profile",
         "hannah_list_projects",
@@ -837,6 +844,9 @@ async function runHTTP(): Promise<void> {
       connect: `${process.env.BASE_URL ?? "https://your-railway-url.railway.app"}/mcp`,
       portfolio: "https://hannahkraulikpagade.com",
       linkedin: "https://www.linkedin.com/in/hannah-pagade",
+      serviceVersion,
+      buildDate: buildMeta.buildDate,
+      gitSha: buildMeta.gitSha,
       profileDataLastUpdated: freshness.profileDataLastUpdated,
       mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
     });
