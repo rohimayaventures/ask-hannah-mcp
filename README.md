@@ -22,8 +22,8 @@ An MCP (Model Context Protocol) server that helps recruiters and hiring managers
 | `hannah_get_voice` | First-person voice answers to common hiring questions |
 | `hannah_answer_question` | Direct answers for recruiter and hiring manager FAQs |
 | `hannah_get_hiring_brief` | One-page recruiter brief with role-focused fit, proof points, and interview angles |
-| `hannah_generate_resume` | Tailored resume generation using verified source data |
-| `hannah_generate_cover_letter` | Tailored cover letter generation using verified source data |
+| `hannah_generate_resume` | Tailored resume: model returns **JSON** (Zod-validated), **Phase 3** fact check, **Phase 4** `atsMode` render (`markdown` default, or `plain` / `plain_dense`); `structuredContent` includes `text`, `documentJson`, `textFormat`, `atsMode` |
+| `hannah_generate_cover_letter` | Same pipeline as resume (JSON, Phase 3, Phase 4 `atsMode`); structured cover letter text plus `documentJson`, `textFormat`, `atsMode` |
 
 ## Data Freshness
 
@@ -35,7 +35,7 @@ An MCP (Model Context Protocol) server that helps recruiters and hiring managers
 Generation tools call the Anthropic Messages API with **non-streaming** requests. Operational behavior:
 
 - **Model selection:** `ANTHROPIC_MODEL_RESUME` and `ANTHROPIC_MODEL_COVER_LETTER` override the model per tool; if unset, `ANTHROPIC_MODEL` applies to both; if that is unset, the server uses the default in `src/lib/model-env.ts` (currently `claude-sonnet-4-20250514`).
-- **Structured documents (Phase 2):** The main model returns **JSON** for resume and cover letter. The server validates with **Zod** (`src/lib/generation-schemas.ts`), then renders **deterministic Markdown** (`render-resume-markdown.ts`, `render-cover-letter-markdown.ts`). **Name, title, location, email, portfolio, LinkedIn, and GitHub** on the resume are taken from `hannah-data` profile fields, not from the model. Successful tool responses include `structuredContent.documentJson` with the validated object. If the model emits invalid JSON or fails schema checks, you get `ERR_RESUME_JSON`, `ERR_RESUME_SCHEMA`, `ERR_COVER_LETTER_JSON`, or `ERR_COVER_LETTER_SCHEMA` with a short field hint (no posting text in logs). Tune output headroom with `RESUME_GENERATION_MAX_TOKENS` (default `6144`) and `COVER_LETTER_GENERATION_MAX_TOKENS` (default `3072`). Override the resume footer line with `RESUME_PDF_CTA_LINE` if your public URL changes.
+- **Structured documents (Phase 2):** The main model returns **JSON** for resume and cover letter. The server validates with **Zod** (`src/lib/generation-schemas.ts`), then renders output deterministically: default **`markdown`** via `render-resume-markdown.ts` / `render-cover-letter-markdown.ts`, or **ATS plain text** via **`generation-ats-render.ts`** when `atsMode` is `plain` or `plain_dense` (Phase 4). **Name, title, location, email, portfolio, LinkedIn, and GitHub** on the resume are taken from `hannah-data` profile fields, not from the model. Successful tool responses include `structuredContent.documentJson` with the validated object. If the model emits invalid JSON or fails schema checks, you get `ERR_RESUME_JSON`, `ERR_RESUME_SCHEMA`, `ERR_COVER_LETTER_JSON`, or `ERR_COVER_LETTER_SCHEMA` with a short field hint (no posting text in logs). Tune output headroom with `RESUME_GENERATION_MAX_TOKENS` (default `6144`) and `COVER_LETTER_GENERATION_MAX_TOKENS` (default `3072`). Override the resume footer line with `RESUME_PDF_CTA_LINE` if your public URL changes.
 - **Fact verification (Phase 3):** After Zod validation, model-owned resume and cover letter text is checked against a normalized corpus built from `hannah-data` (`src/lib/generation-fact-verify.ts`): disallowed references from generation rules, incorrect “15 years” experience framing, and quantitative patterns (for example `$…`, `NN%`, common verified phrases such as `130+ people` and `90 days`) must appear in that corpus or the tool returns `ERR_RESUME_FACT_DRIFT` / `ERR_COVER_LETTER_FACT_DRIFT`. Disable only for emergencies with `GENERATION_FACT_VERIFY_ENABLED=0`.
 - **ATS modes (Phase 4):** Both generation tools accept **`atsMode`**: `markdown` (default), `plain` (ATS-oriented plain text: no `#` headings or `**bold**`; uppercase name line; `SUMMARY` / `SKILLS` / `EXPERIENCE` / `PROJECTS` / `EDUCATION` labels; profile links expanded to `label — url`), or `plain_dense` (tighter line breaks). Non-markdown modes add prompt rules so JSON strings stay plain (no markdown/HTML inside fields) and JOB SIGNALS vocabulary aligns only with verified skill lines. Successful responses include `structuredContent.textFormat` (`markdown` | `plain`) and `structuredContent.atsMode`. Generation telemetry includes `atsMode`.
 - **Retries:** Transient failures (for example 429, timeouts, connection resets) retry with exponential backoff. Tune with `ANTHROPIC_RETRY_MAX_ATTEMPTS` (default `3`) and `ANTHROPIC_RETRY_BASE_MS` (default `1000`).
@@ -165,6 +165,8 @@ Contact fallback order:
 
 ## Local Development
 
+Use **Node.js 20 or newer** (see `package.json` `engines`).
+
 ```bash
 npm install
 npm run dev
@@ -195,6 +197,7 @@ npm test
 
 ## Tech Stack
 
+- Node.js 20+
 - TypeScript
 - MCP SDK (`@modelcontextprotocol/sdk`)
 - Express (HTTP transport)

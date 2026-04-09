@@ -3,7 +3,7 @@
 **Hannah Kraulik Pagade | Rohimaya Health AI**
 [hannahkraulikpagade.com](https://hannahkraulikpagade.com)
 
-**Last updated:** April 2026
+**Last updated:** April 9, 2026
 
 ---
 
@@ -83,7 +83,7 @@ The server is stateless by design. All professional data lives in `hannah-data.t
 All ten tools read professional content from one typed TypeScript module. Profile data, voice answers, project details, metrics, skills, and FAQ answers live there. When a fact changes, it changes once and propagates to every tool automatically. Handler logic and shared helpers now live in `src/lib` and `src/tool-handlers` for maintainability, but the facts still originate in one place. This is the same discipline applied to `caseStudies.ts` on the portfolio site: one source of truth, multiple rendering surfaces.
 
 **Tool schema design for downstream synthesis.**
-MCP tools are only as useful as the structure they return. Each tool was designed with the downstream synthesis step in mind. `hannah_get_profile` returns a flat object with clearly labeled fields because Claude's synthesis layer handles prose. `hannah_generate_resume` returns document text because the downstream use case is direct output to a human, not further AI processing.
+MCP tools are only as useful as the structure they return. Each tool was designed with the downstream synthesis step in mind. `hannah_get_profile` returns a flat object with clearly labeled fields because Claude's synthesis layer handles prose. `hannah_generate_resume` and `hannah_generate_cover_letter` return **human-readable text** plus **`structuredContent`**: validated **`documentJson`**, **`textFormat`** (`markdown` or `plain`), and **`atsMode`** so hosts can paste for humans or hand structured data to another system without re-parsing prose.
 
 **`hannah_get_voice` as a distinct tool from `hannah_get_profile`.**
 This was a deliberate separation. Profile data is factual: years of experience, job titles, product URLs. Voice data is positional: how Hannah frames her own story, in her own words, for a human audience. Mixing the two would force every tool caller to filter the signal they want. Separating them means the caller gets exactly what they asked for.
@@ -156,7 +156,7 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 - Automated tests for role normalization, contact URL handling, and metric tagging (`npm test`); sample JSON shapes documented in-repo for regression clarity
 - Resume and cover letter generation: Anthropic model IDs configurable via environment (per tool or shared fallback), automatic retries with exponential backoff on transient API errors, structured one-line JSON logs on stderr per generation call (durations and string lengths only, never job description body text), optional per-IP sliding-window rate limit on `POST /mcp`, and `trust proxy` enabled by default for correct client IP behind Railway
 - Phase 1 job description pipeline: for postings over a configurable length threshold, a dedicated extractor model emits Zod-validated JSON (role summary, must-haves, skills, constraints, tailoring notes) that is rendered into a compact JOB SIGNALS block for the main generator; failures fall back to a deterministic excerpt. Separate `jd_extract` telemetry lines record extract timing and sizes without logging posting text
-- Phase 2 structured documents: main resume and cover letter calls return **JSON only**, validated with Zod (`generation-schemas`), then rendered to stable Markdown (`render-resume-markdown`, `render-cover-letter-markdown`). Resume header and contact lines are server-owned from `hannah-data`. Schema or JSON failures surface as `ERR_*_JSON` / `ERR_*_SCHEMA` without logging posting bodies; success payloads may include `documentJson` for downstream consumers
+- Phase 2 structured documents: main resume and cover letter calls return **JSON only**, validated with Zod (`generation-schemas`), then rendered deterministically: default **Markdown** (`render-resume-markdown`, `render-cover-letter-markdown`) or, in Phase 4, **plain text** via `generation-ats-render` when `atsMode` requests it. Resume header and contact lines are server-owned from `hannah-data`. Schema or JSON failures surface as `ERR_*_JSON` / `ERR_*_SCHEMA` without logging posting bodies; success payloads include `documentJson`, `textFormat`, and `atsMode` for downstream consumers
 - Phase 3 fact verification: after Zod passes, model-owned resume and cover letter strings are scanned against a normalized corpus from profile, metrics, projects, skills, and voice data. Disallowed references, incorrect 15-year experience framing, and common quantitative patterns (currency, two- and three-digit percentages, scaled suffix numbers, and a small set of verified phrases such as people-led and ninety-day ship claims) must appear in that corpus or the tool returns `ERR_RESUME_FACT_DRIFT` / `ERR_COVER_LETTER_FACT_DRIFT` with privacy-safe `generation` telemetry. Checks can be disabled in production only via `GENERATION_FACT_VERIFY_ENABLED=0`
 - Phase 4 ATS-oriented serialization: generation tools accept **`atsMode`** (`markdown` default, `plain`, `plain_dense`). Plain modes use deterministic rendering (`generation-ats-render`) without markdown headings or bold, expand profile markdown links to label and URL, add section labels suitable for parsers, and tighten whitespace in `plain_dense`. Prompts gain ATS instructions so JSON string fields stay plain and JOB SIGNALS terminology aligns only with verified skill lists. Telemetry and `structuredContent` expose `atsMode` and `textFormat`.
 
@@ -273,4 +273,4 @@ There are no external citations for this case study. All claims are based on dir
 
 ---
 
-*Case study written April 2026. Hannah Kraulik Pagade, Rohimaya Health AI.*
+*Case study updated April 9, 2026. Hannah Kraulik Pagade, Rohimaya Health AI.*

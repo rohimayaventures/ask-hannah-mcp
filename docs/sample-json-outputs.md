@@ -93,14 +93,64 @@ This file shows representative JSON structures for key tools so future changes c
 }
 ```
 
-## `hannah_generate_resume` / `hannah_generate_cover_letter`
+## `hannah_generate_resume` (success `structuredContent`, illustrative)
+
+After Zod validation, Phase 3 fact verification (unless disabled), and Phase 4 rendering, MCP `structuredContent` resembles:
 
 ```json
 {
   "document": "resume",
-  "text": "Generated document body...",
+  "text": "# Hannah Kraulik Pagade\n\n**AI product leader...**\n\n## Summary\n...",
+  "textFormat": "markdown",
+  "atsMode": "markdown",
+  "documentJson": {
+    "summary": "First-person summary paragraph from the model.",
+    "skills": ["Skill one", "Skill two", "Skill three"],
+    "experience": [
+      {
+        "headline": "Role title | Context",
+        "bullets": ["Impact bullet grounded in verified metrics only"]
+      }
+    ],
+    "projects": [
+      {
+        "name": "OrixLink AI",
+        "bullets": ["Live product proof point from verified data"]
+      }
+    ],
+    "education": "MS, Artificial Intelligence and Machine Learning, University of Colorado Boulder, in progress, expected 2026"
+  },
   "provenance": "Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.",
   "profileDataLastUpdated": "2026-04-09",
   "mcpContentSetLastUpdated": "2026-04-09"
 }
 ```
+
+With **`atsMode`: `plain`** or **`plain_dense`**, **`text`** is plain text (no `#` headings), and **`textFormat`** is **`plain`**.
+
+Errors use tool `content` text such as `[ERR_RESUME_JSON]`, `[ERR_RESUME_SCHEMA]`, or `[ERR_RESUME_FACT_DRIFT]` (not shown here).
+
+## `hannah_generate_cover_letter` (success `structuredContent`, illustrative)
+
+```json
+{
+  "document": "cover_letter",
+  "text": "Dear Hiring Team,\n\nFirst paragraph...\n\n",
+  "textFormat": "markdown",
+  "atsMode": "markdown",
+  "documentJson": {
+    "salutation": "Dear Hiring Team,",
+    "paragraphs": [
+      "First paragraph body.",
+      "Second paragraph body.",
+      "Third paragraph body."
+    ],
+    "signOff": "Sincerely,\nHannah Kraulik Pagade\nhannah.pagade@gmail.com"
+  },
+  "provenance": "Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.",
+  "profileDataLastUpdated": "2026-04-09",
+  "mcpContentSetLastUpdated": "2026-04-09"
+}
+```
+
+Errors may include `[ERR_COVER_LETTER_JSON]`, `[ERR_COVER_LETTER_SCHEMA]`, or `[ERR_COVER_LETTER_FACT_DRIFT]`.
