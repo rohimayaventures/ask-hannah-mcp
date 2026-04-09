@@ -101,6 +101,7 @@ Concrete example (tool arguments):
 ## Current Capabilities
 
 - Role-focused hiring briefs support both concise decision mode (`summary`) and deep-dive mode (why now, scorecards, 30/60/90, risks/mitigations, interview prompts).
+- Hiring briefs now include `scoreRationale`, compact founder-concern coverage in `summary`, proof-source pointers, and optional role-specific 90-day KPI targets.
 - Metrics JSON includes trust metadata (`evidenceTag` and `confidenceNote`) to speed up screening confidence.
 - Resume and cover-letter tools are constrained to verified source data and return standardized error codes with actionable next steps.
 - Freshness metadata is included in outputs and controlled by environment variables.

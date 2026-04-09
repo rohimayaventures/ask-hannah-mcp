@@ -207,7 +207,7 @@ Examples:
 - "Who is Hannah?" / "What roles is she targeting?" / "How do I reach her?"
 - Do not use for specific project details — use hannah_get_project_detail instead`,
     inputSchema: {
-      format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+      format: z.enum(["markdown", "json", "summary"]).default("markdown").describe("Output format"),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
@@ -661,6 +661,34 @@ Focus options support recruiter shorthand and conversational AI aliases:
       metrics.product[2]?.metric,
       metrics.product[3]?.metric,
     ].filter(Boolean) as string[];
+    const proofSourcePointers = [
+      {
+        claim: metrics.operations[0]?.metric ?? "Led high-scale operations outcomes.",
+        sourceType: "operations_metric",
+        reference: metrics.operations[0]
+          ? `${metrics.operations[0].context} (${metrics.operations[0].employer}, ${metrics.operations[0].dates})`
+          : "Operations metric in structured profile data",
+      },
+      {
+        claim: metrics.product[2]?.metric ?? "Improved conversational efficiency outcomes.",
+        sourceType: "product_metric",
+        reference: metrics.product[2]
+          ? `${metrics.product[2].context}`
+          : "Product metric in structured profile data",
+      },
+      {
+        claim: metrics.product[3]?.metric ?? "Shipped research-backed UX improvements.",
+        sourceType: "product_metric",
+        reference: metrics.product[3]
+          ? `${metrics.product[3].context}`
+          : "Product metric in structured profile data",
+      },
+      {
+        claim: "Built and shipped multiple public AI products.",
+        sourceType: "live_product_links",
+        reference: topLiveLinks.map((x) => `${x.name} (${x.url})`).join(" | "),
+      },
+    ];
 
     const interviewTopics = [
       "How Hannah designs escalation logic, safety boundaries, and refusal behavior in conversational AI.",
@@ -705,6 +733,52 @@ Focus options support recruiter shorthand and conversational AI aliases:
         "healthcare-ai": { speed_to_value: 4, execution_depth: 4, cross_functional_leadership: 4, ai_safety_maturity: 5 },
         "general-ai": { speed_to_value: 4, execution_depth: 4, cross_functional_leadership: 4, ai_safety_maturity: 4 },
       };
+    const scoreRationaleByFocus: Record<
+      CanonicalRoleFocus,
+      {
+        speed_to_value: string;
+        execution_depth: string;
+        cross_functional_leadership: string;
+        ai_safety_maturity: string;
+      }
+    > = {
+      "founding-pm": {
+        speed_to_value: "Repeated 0-to-1 delivery with constrained scope and fast iteration loops.",
+        execution_depth: "Hands-on ownership across strategy, UX, prompts, implementation details, and launch quality.",
+        cross_functional_leadership: "Strong alignment and decision making across founders, design, and engineering under ambiguity.",
+        ai_safety_maturity: "Operationalized escalation and guardrail thinking in shipped conversational systems.",
+      },
+      "head-of-product": {
+        speed_to_value: "Moves from diagnosis to roadmap decisions quickly while preserving measurable outcomes.",
+        execution_depth: "Balances system-level product strategy with practical execution accountability.",
+        cross_functional_leadership: "Leads stakeholder alignment and prioritization in complex environments.",
+        ai_safety_maturity: "Applies trust and quality standards to AI releases with governance discipline.",
+      },
+      "ai-pm": {
+        speed_to_value: "Prioritizes high-value AI use cases and ships outcome-oriented improvements quickly.",
+        execution_depth: "Converts user goals into model behavior requirements, evaluation loops, and release plans.",
+        cross_functional_leadership: "Coordinates product, engineering, and design trade-offs around quality and speed.",
+        ai_safety_maturity: "Strong explicit framework for guardrails, escalation behavior, and failure handling.",
+      },
+      "ux-ai": {
+        speed_to_value: "Targets trust and comprehension friction first to unlock fast user experience gains.",
+        execution_depth: "Conversation design decisions are grounded in implementation realities and edge cases.",
+        cross_functional_leadership: "Bridges research, design, and engineering to deliver coherent interaction systems.",
+        ai_safety_maturity: "Designs with robust fallback and escalation behavior beyond happy-path interactions.",
+      },
+      "healthcare-ai": {
+        speed_to_value: "Identifies highest-impact safe pathways early in regulated and high-risk product contexts.",
+        execution_depth: "Combines clinical operations depth with production conversational AI execution.",
+        cross_functional_leadership: "Aligns clinical, compliance, and product partners on safe delivery decisions.",
+        ai_safety_maturity: "High maturity in risk triage, refusal boundaries, and escalation-driven trust architecture.",
+      },
+      "general-ai": {
+        speed_to_value: "Drives practical AI outcomes quickly by focusing on validated user and business impact.",
+        execution_depth: "Comfortable across strategy, UX, and shipping mechanics across multiple domains.",
+        cross_functional_leadership: "Builds execution momentum through clear, cross-functional decision frameworks.",
+        ai_safety_maturity: "Applies reliable trust and quality standards to real-world AI product behavior.",
+      },
+    };
 
     const first30_60_90ByFocus: Record<CanonicalRoleFocus, { day30: string[]; day60: string[]; day90: string[] }> = {
       "founding-pm": {
@@ -810,6 +884,50 @@ Focus options support recruiter shorthand and conversational AI aliases:
         ],
       },
     };
+    const kpiTargetsByFocus: Record<CanonicalRoleFocus, { day90Targets: string[] }> = {
+      "founding-pm": {
+        day90Targets: [
+          "Launch first core workflow with >=20% improvement in completion or conversion baseline.",
+          "Reduce critical failure-mode rate by >=30% from week-1 baseline.",
+          "Establish weekly product-quality scorecard used by product/design/engineering.",
+        ],
+      },
+      "head-of-product": {
+        day90Targets: [
+          "Align roadmap to 3-5 high-leverage bets with explicit KPI ownership.",
+          "Increase on-time delivery predictability by >=20% through operating cadence improvements.",
+          "Stand up portfolio scorecard with quality, adoption, and business outcome signals.",
+        ],
+      },
+      "ai-pm": {
+        day90Targets: [
+          "Improve AI workflow completion/success by >=15% on highest-value use case.",
+          "Cut unresolved high-severity trust/safety defects by >=30%.",
+          "Establish release checklist with evaluation gates adopted by delivery team.",
+        ],
+      },
+      "ux-ai": {
+        day90Targets: [
+          "Increase conversational flow completion by >=15% in top user journeys.",
+          "Reduce escalation/handoff breakdowns by >=25% through improved dialogue design.",
+          "Publish reusable conversation patterns adopted in at least 2 shipping flows.",
+        ],
+      },
+      "healthcare-ai": {
+        day90Targets: [
+          "Improve safe-completion rates on priority care pathways by >=15%.",
+          "Reduce ambiguous/high-risk response incidents by >=30%.",
+          "Operationalize clinical AI review cadence with documented go/no-go criteria.",
+        ],
+      },
+      "general-ai": {
+        day90Targets: [
+          "Deliver >=2 high-impact AI improvements with measurable usage or conversion lift.",
+          "Reduce top friction points in AI journeys by >=20% based on user behavior data.",
+          "Implement shared quality KPI dashboard for AI feature iteration.",
+        ],
+      },
+    };
 
     const whyNowTransitionByFocus: Record<CanonicalRoleFocus, string> = {
       "founding-pm":
@@ -868,7 +986,10 @@ Focus options support recruiter shorthand and conversational AI aliases:
       hardQuestionsIWelcome,
       founderRisksAndMitigations,
       roleScorecard: scorecardByFocus[normalizedFocus],
+      scoreRationale: scoreRationaleByFocus[normalizedFocus],
       first30_60_90: first30_60_90ByFocus[normalizedFocus],
+      kpiTargets: kpiTargetsByFocus[normalizedFocus],
+      proofSourcePointers,
       contactOptions,
       freshness: {
         profileDataLastUpdated: freshness.profileDataLastUpdated,
@@ -884,11 +1005,16 @@ Focus options support recruiter shorthand and conversational AI aliases:
     }
 
     if ((format as string) === "summary") {
+      const topFounderConcernsAddressed = data.founderRisksAndMitigations
+        .slice(0, 2)
+        .map((x) => `${x.risk} -> ${x.mitigation}`)
+        .join(" | ");
       const summary = `# Hiring Summary — ${profile.name}
 
 - Focus requested: ${focus}
 - Focus applied: ${data.roleLens}
 - Top proof points: ${data.topProofPoints.join(" | ")}
+- Top founder concerns addressed: ${topFounderConcernsAddressed}
 - Availability: ${data.availability}
 - Location: ${data.location} (Relocation: ${data.relocation.openToRelocation ? "Yes" : "No"})
 - Why now: ${data.whyNowTransition}
@@ -950,6 +1076,12 @@ ${data.founderRisksAndMitigations.map((x) => `- Risk: ${x.risk}\n  Mitigation: $
 - Cross-functional leadership: ${data.roleScorecard.cross_functional_leadership}
 - AI safety maturity: ${data.roleScorecard.ai_safety_maturity}
 
+## Score Rationale
+- Speed to value: ${data.scoreRationale.speed_to_value}
+- Execution depth: ${data.scoreRationale.execution_depth}
+- Cross-functional leadership: ${data.scoreRationale.cross_functional_leadership}
+- AI safety maturity: ${data.scoreRationale.ai_safety_maturity}
+
 ## First 30/60/90
 ### Day 30
 ${data.first30_60_90.day30.map((x) => `- ${x}`).join("\n")}
@@ -957,6 +1089,12 @@ ${data.first30_60_90.day30.map((x) => `- ${x}`).join("\n")}
 ${data.first30_60_90.day60.map((x) => `- ${x}`).join("\n")}
 ### Day 90
 ${data.first30_60_90.day90.map((x) => `- ${x}`).join("\n")}
+
+## Optional KPI Targets (First 90 Days)
+${data.kpiTargets.day90Targets.map((x) => `- ${x}`).join("\n")}
+
+## Proof Source Pointers
+${data.proofSourcePointers.map((x) => `- Claim: ${x.claim}\n  Source: ${x.sourceType}\n  Reference: ${x.reference}`).join("\n")}
 
 ## Notes
 - ${data.anonymizationNotice}
