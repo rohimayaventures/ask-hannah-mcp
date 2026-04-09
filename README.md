@@ -35,13 +35,14 @@ An MCP (Model Context Protocol) server that helps recruiters and hiring managers
 Generation tools call the Anthropic Messages API with **non-streaming** requests. Operational behavior:
 
 - **Model selection:** `ANTHROPIC_MODEL_RESUME` and `ANTHROPIC_MODEL_COVER_LETTER` override the model per tool; if unset, `ANTHROPIC_MODEL` applies to both; if that is unset, the server uses the default in `src/lib/model-env.ts` (currently `claude-sonnet-4-20250514`).
+- **Structured documents (Phase 2):** The main model returns **JSON** for resume and cover letter. The server validates with **Zod** (`src/lib/generation-schemas.ts`), then renders **deterministic Markdown** (`render-resume-markdown.ts`, `render-cover-letter-markdown.ts`). **Name, title, location, email, portfolio, LinkedIn, and GitHub** on the resume are taken from `hannah-data` profile fields, not from the model. Successful tool responses include `structuredContent.documentJson` with the validated object. If the model emits invalid JSON or fails schema checks, you get `ERR_RESUME_JSON`, `ERR_RESUME_SCHEMA`, `ERR_COVER_LETTER_JSON`, or `ERR_COVER_LETTER_SCHEMA` with a short field hint (no posting text in logs). Tune output headroom with `RESUME_GENERATION_MAX_TOKENS` (default `6144`) and `COVER_LETTER_GENERATION_MAX_TOKENS` (default `3072`). Override the resume footer line with `RESUME_PDF_CTA_LINE` if your public URL changes.
 - **Retries:** Transient failures (for example 429, timeouts, connection resets) retry with exponential backoff. Tune with `ANTHROPIC_RETRY_MAX_ATTEMPTS` (default `3`) and `ANTHROPIC_RETRY_BASE_MS` (default `1000`).
 - **Job description extraction (Phase 1):** When enabled (default), postings longer than `JD_EXTRACT_SKIP_LLM_UNDER_CHARS` (default `2800`) are sent to a **separate** Anthropic Messages call that returns **JSON only** (Zod-validated). The structured fields are rendered into a compact **JOB SIGNALS** block for the main resume or cover letter call, which reduces tokens and noise. The extractor model defaults to `claude-3-5-haiku-20241022` and is overridden by `ANTHROPIC_MODEL_JD_EXTRACT` or `ANTHROPIC_MODEL`. Set `JD_EXTRACT_ENABLED=0` to pass every posting through verbatim. If extraction fails or returns empty text, the server falls back to a **deterministic excerpt** of the posting (still no secrets in logs). Tune input cap, excerpt size, and extractor `max_tokens` with `JD_EXTRACT_MAX_INPUT_CHARS`, `JD_EXTRACT_FALLBACK_EXCERPT_CHARS`, and `JD_EXTRACT_MAX_TOKENS`.
 - **Telemetry:** Each extraction pass emits **`event: "jd_extract"`** on stderr (raw and prompt character counts, `extractUsed`, `extractMs`, `model`, `attempts`, `ok`, and error codes such as `ERR_JD_EXTRACT_PARSE` / `ERR_JD_EXTRACT_EMPTY` when relevant—**never the posting text**). Each finished generation attempt emits **`event: "generation"`** with tool name, `ok`, `durationMs`, `jdChars` (original posting length), `jdPromptChars` (length of the posting material actually inserted into the main prompt), `jdExtractUsed`, `jdExtractOk`, job title and company lengths, `model`, optional `attempts`, and on failure `errorCode` / `httpStatus`. Point Railway log drains at these lines for dashboards.
 - **Rate limiting (optional):** Set `MCP_RATE_LIMIT_ENABLED=1` to enable a sliding-window cap on **`POST /mcp`** per client IP (`MCP_RATE_LIMIT_MAX`, default `120`; `MCP_RATE_LIMIT_WINDOW_MS`, default `60000`). Disabled by default so normal Claude connector traffic is unaffected.
 - **Proxy IP:** By default the server sets Express `trust proxy` to `1` so `X-Forwarded-For` works on Railway. Set `TRUST_PROXY=0` to disable.
 
-See `ASK-HANNAH-MCP-CASE-STUDY.md` (Section 4, Generation hardening roadmap) for shipped Phase 1 (JD extraction) and planned Phase 2+ work (structured documents, verification, export).
+See `ASK-HANNAH-MCP-CASE-STUDY.md` (Section 4, Generation hardening roadmap) for shipped Phases 0–2 and planned Phase 3+ work (verification pass, ATS modes, export).
 
 ## Example Questions to Ask Claude
 
@@ -107,6 +108,7 @@ Concrete example (tool arguments):
 - If connector setup fails, confirm your URL ends with `/mcp` and test `https://your-url/health` first.
 - If resume/cover-letter generation fails, confirm `ANTHROPIC_API_KEY` is present and valid in Railway Variables and that any custom `ANTHROPIC_MODEL*` value is available to your Anthropic account.
 - If generation returns empty output, retry with a shorter JD (3-6 key requirements instead of full boilerplate).
+- If you see `ERR_RESUME_SCHEMA` / `ERR_COVER_LETTER_SCHEMA`, the model returned JSON that failed validation; retry the tool once, or raise `RESUME_GENERATION_MAX_TOKENS` / `COVER_LETTER_GENERATION_MAX_TOKENS` if responses are truncated.
 - For metric trust details, request JSON from `hannah_get_metrics` and review `evidenceTag` + `confidenceNote`.
 - The root endpoint (`/`) includes `contactHealth.warnings` for non-secret contact/config issues (missing URLs, malformed contact values, etc.).
 - On startup, the server logs non-secret contact/config warnings so invalid settings are visible immediately.
@@ -117,12 +119,12 @@ Concrete example (tool arguments):
 - Hiring briefs now include `scoreRationale`, compact founder-concern coverage in `summary`, proof-source pointers, and optional role-specific 90-day KPI targets.
 - Conversion-oriented hiring summaries include a decision recommendation line and explicit contact fallback order.
 - Metrics JSON includes trust metadata (`evidenceTag` and `confidenceNote`) to speed up screening confidence.
-- Resume and cover-letter tools are constrained to verified source data and return standardized error codes with actionable next steps; the API layer uses configurable models, bounded retries, structured stderr telemetry (no job description content in logs), and for longer postings a validated JSON extraction pass that feeds compact JOB SIGNALS into the main generator (with excerpt fallback and `jd_extract` logs).
+- Resume and cover-letter tools use a **JSON-then-render** pipeline: Zod-validated document objects, deterministic Markdown for display, and optional `documentJson` on success; they are constrained to verified source data in prompts and return standardized error codes (`ERR_*_JSON` / `ERR_*_SCHEMA` included). The API layer uses configurable models, bounded retries, structured stderr telemetry (no job description content in logs), and for longer postings a validated JSON extraction pass that feeds compact JOB SIGNALS into the main generator (with excerpt fallback and `jd_extract` logs).
 - Freshness metadata is included in outputs and controlled by environment variables.
 - Direct contact conversion supports email, Calendly, optional Zoom booking, LinkedIn, preferred contact method, response-time SLA, timezone, and optional UTM/event suffix controls.
 - Contact order for recruiter follow-up is explicit: Calendly -> LinkedIn -> Email.
 - Code is modularized for maintainability: role/focus normalization, contact/freshness helpers, and tool handlers are separated under `src/lib` and `src/tool-handlers`.
-- Test coverage exists for role normalization, Calendly URL handling, metric evidence tagging, Anthropic retry helpers, generation and JD-extract model env resolution, and JD JSON parsing helpers via `npm test`.
+- Test coverage exists for role normalization, Calendly URL handling, metric evidence tagging, Anthropic retry helpers, generation and JD-extract model env resolution, JD JSON parsing, resume/cover document parse and render helpers, and max-token env helpers via `npm test`.
 - Sample tool JSON payloads are documented in `docs/sample-json-outputs.md`.
 
 ## Contact Conversion Setup
@@ -182,6 +184,7 @@ npm test
    - `ANTHROPIC_MODEL`, `ANTHROPIC_MODEL_RESUME`, `ANTHROPIC_MODEL_COVER_LETTER`, `ANTHROPIC_MODEL_JD_EXTRACT`
    - `ANTHROPIC_RETRY_MAX_ATTEMPTS`, `ANTHROPIC_RETRY_BASE_MS`
    - `JD_EXTRACT_ENABLED`, `JD_EXTRACT_SKIP_LLM_UNDER_CHARS`, `JD_EXTRACT_MAX_INPUT_CHARS`, `JD_EXTRACT_FALLBACK_EXCERPT_CHARS`, `JD_EXTRACT_MAX_TOKENS`
+   - `RESUME_GENERATION_MAX_TOKENS`, `COVER_LETTER_GENERATION_MAX_TOKENS`, `RESUME_PDF_CTA_LINE`
    - `TRUST_PROXY` (set to `0` only if you must disable proxy trust)
    - `MCP_RATE_LIMIT_ENABLED`, `MCP_RATE_LIMIT_MAX`, `MCP_RATE_LIMIT_WINDOW_MS` (off unless you enable the limiter)
 10. Copy the Railway public URL and add `/mcp` as your Claude connector

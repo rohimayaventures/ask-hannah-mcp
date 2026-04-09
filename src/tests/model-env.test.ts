@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_ANTHROPIC_GENERATION_MODEL,
   DEFAULT_JD_EXTRACT_MODEL,
+  getCoverLetterGenerationMaxTokens,
   getCoverLetterGenerationModel,
   getJdExtractModel,
+  getResumeGenerationMaxTokens,
   getResumeGenerationModel,
 } from "../lib/model-env.js";
 
@@ -20,6 +22,22 @@ test("getResumeGenerationModel falls back to default when env unset", () => {
     else delete process.env.ANTHROPIC_MODEL_RESUME;
     if (prevG !== undefined) process.env.ANTHROPIC_MODEL = prevG;
     else delete process.env.ANTHROPIC_MODEL;
+  }
+});
+
+test("generation max token helpers respect env and caps", () => {
+  const prevR = process.env.RESUME_GENERATION_MAX_TOKENS;
+  const prevC = process.env.COVER_LETTER_GENERATION_MAX_TOKENS;
+  process.env.RESUME_GENERATION_MAX_TOKENS = "5000";
+  process.env.COVER_LETTER_GENERATION_MAX_TOKENS = "2048";
+  try {
+    assert.equal(getResumeGenerationMaxTokens(), 5000);
+    assert.equal(getCoverLetterGenerationMaxTokens(), 2048);
+  } finally {
+    if (prevR !== undefined) process.env.RESUME_GENERATION_MAX_TOKENS = prevR;
+    else delete process.env.RESUME_GENERATION_MAX_TOKENS;
+    if (prevC !== undefined) process.env.COVER_LETTER_GENERATION_MAX_TOKENS = prevC;
+    else delete process.env.COVER_LETTER_GENERATION_MAX_TOKENS;
   }
 });
 

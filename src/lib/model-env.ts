@@ -21,3 +21,13 @@ export function getJdExtractModel(): string {
     process.env.ANTHROPIC_MODEL_JD_EXTRACT?.trim() || process.env.ANTHROPIC_MODEL?.trim();
   return fromEnv || DEFAULT_JD_EXTRACT_MODEL;
 }
+
+/** Max output tokens for resume JSON generation (Phase 2). Capped at 8192. */
+export function getResumeGenerationMaxTokens(): number {
+  return Math.min(8192, Math.max(2048, parseInt(process.env.RESUME_GENERATION_MAX_TOKENS ?? "6144", 10)));
+}
+
+/** Max output tokens for cover letter JSON generation (Phase 2). Capped at 8192. */
+export function getCoverLetterGenerationMaxTokens(): number {
+  return Math.min(8192, Math.max(1024, parseInt(process.env.COVER_LETTER_GENERATION_MAX_TOKENS ?? "3072", 10)));
+}

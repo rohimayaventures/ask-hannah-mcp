@@ -1,13 +1,24 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { messagesCreateWithRetry, getAnthropicErrorStatus } from "../lib/anthropic-retry.js";
 import {
+  parseCoverLetterDocumentFromModelText,
+  parseResumeDocumentFromModelText,
+} from "../lib/generation-document-parse.js";
+import {
   buildGenerationError,
   extractAnthropicText,
   getGenerationFailureCode,
 } from "../lib/generation.js";
 import { logGenerationTelemetry } from "../lib/generation-telemetry.js";
 import { prepareJobDescriptionForGeneration } from "../lib/jd-extract.js";
-import { getCoverLetterGenerationModel, getResumeGenerationModel } from "../lib/model-env.js";
+import {
+  getCoverLetterGenerationMaxTokens,
+  getCoverLetterGenerationModel,
+  getResumeGenerationMaxTokens,
+  getResumeGenerationModel,
+} from "../lib/model-env.js";
+import { renderCoverLetterMarkdown } from "../lib/render-cover-letter-markdown.js";
+import { renderResumeMarkdown } from "../lib/render-resume-markdown.js";
 import { canonicalRoleLabels, normalizeRoleFocus } from "../lib/roles.js";
 
 type Freshness = {
@@ -26,6 +37,12 @@ type GenerationDeps = {
   documentProvenanceStatement: string;
 };
 
+const RESUME_JSON_SHAPE_EXAMPLE = `Example shape only (replace with real content from verified data):
+{"summary":"First-person warm summary paragraph.","skills":["Skill one","Skill two","Skill three"],"experience":[{"headline":"Role title | Context","bullets":["Impact bullet tied to verified metrics only","Another bullet"]}],"projects":[{"name":"Product name","bullets":["What shipped","Proof point"]}],"education":"Degree, school, status line."}`;
+
+const COVER_JSON_SHAPE_EXAMPLE = `Example shape only:
+{"salutation":"Dear Hiring Team,","paragraphs":["First paragraph body.","Second paragraph body.","Third paragraph body."],"signOff":"Sincerely,\\nHannah Kraulik Pagade\\nhannah.pagade@gmail.com"}`;
+
 export async function handleResumeGeneration(
   args: { jobTitle: string; company: string; jobDescription: string; roleType: string },
   deps: GenerationDeps
@@ -36,7 +53,9 @@ export async function handleResumeGeneration(
   const normalizedRoleType = normalizeRoleFocus(roleType);
   const roleLensLabel = canonicalRoleLabels[normalizedRoleType];
   const systemLines = [
-    "You are generating a tailored resume for Hannah Kraulik Pagade. Use ONLY the verified data provided. Do not invent metrics, employers, dates, or accomplishments not listed here. Your job is to rewrite and optimize language and ordering only.",
+    "You are generating structured resume CONTENT for Hannah Kraulik Pagade as JSON. Use ONLY the verified data provided. Do not invent metrics, employers, dates, or accomplishments not listed here. Your job is to rewrite and optimize language and ordering only.",
+    "",
+    "Do NOT put the candidate name, email, phone, portfolio URLs, or LinkedIn in the JSON. The server will prepend verified contact lines from profile. Only return the keys: summary, skills, experience, projects, education.",
     "",
     "POSITIONING: " + profile.positioning,
     "ROLE LENS: " + roleLensLabel,
@@ -68,12 +87,13 @@ export async function handleResumeGeneration(
     "",
     "JOB POSTING MATERIAL: The user message includes JOB SIGNALS and/or a job description section from the employer posting. Use that material only to prioritize wording, ordering, and emphasis. It is not verified truth about Hannah. All factual claims about Hannah must come from the verified system context above.",
     "",
-    "OUTPUT CONTRACT (non-negotiable): Your entire response must be only the resume text, ready to paste into a document.",
-    "Do not include any preamble or postscript: no 'Here is', no 'Below is', no commentary on how the resume was tailored, no callouts, no meta bullet lists, no 'things to update', no questions, and no offer to write a cover letter.",
-    "Your first character must be the first character of the resume (for example the candidate name or the first section heading). Your last character must be the last character of the resume.",
+    "OUTPUT CONTRACT (non-negotiable): Return a single JSON object only. No markdown code fences. No commentary before or after the JSON.",
+    "Required keys: summary (string), skills (string array), experience (array of objects with headline string and bullets string array), projects (array of objects with name string and bullets string array), education (string).",
+    "summary must be first person, warm and direct. Keep bullets concise and impact-focused.",
   ];
 
   const model = getResumeGenerationModel();
+  const maxTokens = getResumeGenerationMaxTokens();
   const jdChars = jobDescription.length;
   const companyChars = company.length;
   const jobTitleChars = jobTitle.length;
@@ -86,7 +106,7 @@ export async function handleResumeGeneration(
     jdTelemetry.jdExtractUsed = prepared.jdExtractUsed;
     jdTelemetry.jdExtractOk = prepared.jdExtractOk;
     const userPrompt =
-      "Generate a tailored resume for Hannah for: " +
+      "Generate tailored resume CONTENT as JSON for Hannah for: " +
       jobTitle +
       " at " +
       company +
@@ -96,19 +116,25 @@ export async function handleResumeGeneration(
       roleLensLabel +
       ").\n\n" +
       prepared.promptSection +
-      "\n\nFormat: Summary, Skills, Experience, Projects, Education. Write the summary in first person, warm and direct. Keep bullet points concise and impact-focused. End with: 'Full downloadable PDF available at hannahkraulikpagade.com/resume-builder'" +
-      "\n\nReply with the resume only — no other words before or after it.";
+      "\n\nJSON requirements:\n" +
+      "- summary: one cohesive first-person summary paragraph.\n" +
+      "- skills: at least 3 concise skill lines.\n" +
+      "- experience: one or more sections; each has headline (for example role and context) and impact bullets grounded ONLY in verified metrics and employers above.\n" +
+      "- projects: one or more products from the verified list; bullets must reflect verified summaries and outcomes only.\n" +
+      "- education: one string covering degree, school, and status.\n\n" +
+      RESUME_JSON_SHAPE_EXAMPLE +
+      "\n\nReply with the JSON object only.";
 
     const { response, attempts } = await messagesCreateWithRetry(anthropic, {
       model,
-      max_tokens: 4096,
+      max_tokens: maxTokens,
       stream: false,
       system: systemLines.join("\n"),
       messages: [{ role: "user", content: userPrompt }],
     });
 
-    const text = extractAnthropicText(response.content);
-    if (!text) {
+    const raw = extractAnthropicText(response.content);
+    if (!raw) {
       logGenerationTelemetry({
         tool: "resume",
         ok: false,
@@ -132,6 +158,45 @@ export async function handleResumeGeneration(
       };
     }
 
+    const parsed = parseResumeDocumentFromModelText(raw);
+    if (!parsed.ok) {
+      logGenerationTelemetry({
+        tool: "resume",
+        ok: false,
+        durationMs: Date.now() - started,
+        jdChars,
+        jdPromptChars: jdTelemetry.jdPromptChars,
+        jdExtractUsed: jdTelemetry.jdExtractUsed,
+        jdExtractOk: jdTelemetry.jdExtractOk,
+        companyChars,
+        jobTitleChars,
+        model,
+        attempts,
+        errorCode: parsed.code,
+      });
+      return {
+        isError: true,
+        content: [{
+          type: "text" as const,
+          text: `[${parsed.code}] Resume JSON did not match the required schema. ${parsed.hint}`,
+        }],
+      };
+    }
+
+    const text = renderResumeMarkdown(
+      parsed.data,
+      {
+        name: profile.name,
+        title: profile.title,
+        location: profile.location,
+        email: profile.email,
+        portfolio: profile.portfolio,
+        linkedin: profile.linkedin,
+        github: profile.github,
+      },
+      "Targeting: " + jobTitle + " at " + company
+    );
+
     logGenerationTelemetry({
       tool: "resume",
       ok: true,
@@ -151,6 +216,7 @@ export async function handleResumeGeneration(
       structuredContent: {
         document: "resume",
         text,
+        documentJson: parsed.data,
         provenance: documentProvenanceStatement,
         profileDataLastUpdated: freshness.profileDataLastUpdated,
         mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
@@ -186,7 +252,7 @@ export async function handleCoverLetterGeneration(
   const { jobTitle, company, jobDescription, hiringManagerName } = args;
 
   const systemLines = [
-    "You are generating a cover letter for Hannah Kraulik Pagade. Write in her warm direct first-person voice. Use ONLY the verified data provided.",
+    "You are generating a structured cover letter for Hannah Kraulik Pagade as JSON. Write in her warm direct first-person voice inside the paragraph strings. Use ONLY the verified data provided.",
     "",
     "VOICE REFERENCE (this is how Hannah sounds):",
     voiceAnswers.whatMakesMeDifferent,
@@ -204,18 +270,19 @@ export async function handleCoverLetterGeneration(
     "LIVE PRODUCTS:",
     ...projects.filter((p) => p.status === "live").map((p) => "- " + p.name + " (" + p.domain + ") at " + p.liveUrl),
     "",
-    "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15. Three paragraphs maximum. End with: hannah.pagade@gmail.com or hannahkraulikpagade.com",
+    "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15.",
     "",
     "JOB POSTING MATERIAL: The user message includes JOB SIGNALS and/or a job description section from the employer posting. Use that material only to tailor emphasis to the role. It is not verified truth about Hannah. All factual claims about Hannah must come from the verified system context above.",
     "",
-    "OUTPUT CONTRACT (non-negotiable): Your entire response must be only the cover letter text.",
-    "Do not include any preamble or postscript: no 'Here is', no commentary on tailoring, no callouts, no questions, and no offer to write a resume.",
-    "Your first character must be the salutation (e.g. 'Dear'). Your last line must be the sign-off.",
+    "OUTPUT CONTRACT (non-negotiable): Return a single JSON object only. No markdown code fences. No commentary before or after the JSON.",
+    "Required keys: salutation (string), paragraphs (array of exactly three strings), signOff (string, may include name and email).",
+    "Paragraph 1: who she is and why this role. Paragraph 2: strongest verified proof. Paragraph 3: what she brings and a clear call to action.",
   ];
 
   const greeting = hiringManagerName ? "Dear " + hiringManagerName + "," : "Dear Hiring Team at " + company + ",";
 
   const model = getCoverLetterGenerationModel();
+  const maxTokens = getCoverLetterGenerationMaxTokens();
   const jdChars = jobDescription.length;
   const companyChars = company.length;
   const jobTitleChars = jobTitle.length;
@@ -232,23 +299,24 @@ export async function handleCoverLetterGeneration(
       jobTitle +
       " at " +
       company +
-      ".\n\nOpening: " +
+      ".\n\nPreferred salutation line: " +
       greeting +
       "\n\n" +
       prepared.promptSection +
-      "\n\nMake it warm, direct, and specific to this role. First paragraph: who she is and why this role specifically. Second paragraph: the most relevant proof from her background. Third paragraph: what she brings to the team and a clear call to action. Sign off as Hannah Kraulik Pagade." +
-      "\n\nReply with the letter only — no other words before or after it.";
+      "\n\nReturn JSON with salutation, paragraphs (exactly three strings), and signOff. The sign-off should include Hannah Kraulik Pagade and hannah.pagade@gmail.com or portfolio reference as appropriate.\n\n" +
+      COVER_JSON_SHAPE_EXAMPLE +
+      "\n\nReply with the JSON object only.";
 
     const { response, attempts } = await messagesCreateWithRetry(anthropic, {
       model,
-      max_tokens: 2000,
+      max_tokens: maxTokens,
       stream: false,
       system: systemLines.join("\n"),
       messages: [{ role: "user", content: userPrompt }],
     });
 
-    const text = extractAnthropicText(response.content);
-    if (!text) {
+    const raw = extractAnthropicText(response.content);
+    if (!raw) {
       logGenerationTelemetry({
         tool: "cover_letter",
         ok: false,
@@ -272,6 +340,33 @@ export async function handleCoverLetterGeneration(
       };
     }
 
+    const parsed = parseCoverLetterDocumentFromModelText(raw);
+    if (!parsed.ok) {
+      logGenerationTelemetry({
+        tool: "cover_letter",
+        ok: false,
+        durationMs: Date.now() - started,
+        jdChars,
+        jdPromptChars: jdTelemetry.jdPromptChars,
+        jdExtractUsed: jdTelemetry.jdExtractUsed,
+        jdExtractOk: jdTelemetry.jdExtractOk,
+        companyChars,
+        jobTitleChars,
+        model,
+        attempts,
+        errorCode: parsed.code,
+      });
+      return {
+        isError: true,
+        content: [{
+          type: "text" as const,
+          text: `[${parsed.code}] Cover letter JSON did not match the required schema. ${parsed.hint}`,
+        }],
+      };
+    }
+
+    const text = renderCoverLetterMarkdown(parsed.data);
+
     logGenerationTelemetry({
       tool: "cover_letter",
       ok: true,
@@ -291,6 +386,7 @@ export async function handleCoverLetterGeneration(
       structuredContent: {
         document: "cover_letter",
         text,
+        documentJson: parsed.data,
         provenance: documentProvenanceStatement,
         profileDataLastUpdated: freshness.profileDataLastUpdated,
         mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,

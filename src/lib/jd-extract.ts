@@ -4,6 +4,9 @@ import { messagesCreateWithRetry, getAnthropicErrorStatus } from "./anthropic-re
 import { extractAnthropicText, getGenerationFailureCode } from "./generation.js";
 import { logJdExtractTelemetry } from "./generation-telemetry.js";
 import { getJdExtractModel } from "./model-env.js";
+import { stripModelJsonFences } from "./model-json.js";
+
+export { stripModelJsonFences } from "./model-json.js";
 
 const extractionSchema = z.object({
   roleSummary: z.string().max(4000).default(""),
@@ -52,14 +55,6 @@ function fallbackExcerptChars(): number {
 
 function extractMaxTokens(): number {
   return Math.min(4096, Math.max(256, parseInt(process.env.JD_EXTRACT_MAX_TOKENS ?? "1536", 10)));
-}
-
-export function stripModelJsonFences(raw: string): string {
-  let t = raw.trim();
-  if (t.startsWith("```")) {
-    t = t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/m, "").trim();
-  }
-  return t;
 }
 
 export function parseJobDescriptionExtractionJson(text: string): JobDescriptionExtraction {
