@@ -19,6 +19,10 @@ An MCP (Model Context Protocol) server that lets any recruiter or hiring manager
 | `hannah_get_project_detail` | Deep dive on any specific project including decisions and stack |
 | `hannah_get_metrics` | Validated clinical and product impact metrics |
 | `hannah_get_skills` | Complete skill set across product, technical, and domain |
+| `hannah_get_voice` | First-person voice answers to common hiring questions |
+| `hannah_answer_question` | Direct answers for recruiter and hiring manager FAQs |
+| `hannah_generate_resume` | Tailored resume generation using verified source data |
+| `hannah_generate_cover_letter` | Tailored cover letter generation using verified source data |
 
 ## Example Questions to Ask Claude
 

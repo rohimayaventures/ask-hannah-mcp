@@ -617,7 +617,7 @@ async function runHTTP(): Promise<void> {
   app.get("/", (_req: Request, res: Response) => {
     res.json({
       name: "Ask Hannah MCP Server",
-      description: "Interactive portfolio for Hannah Kraulik Pagade. Add this URL as a custom MCP connector in Claude to query her work, generate tailored resumes and cover letters, and learn about her background.",
+      description: "Interactive portfolio for Hannah Kraulik Pagade. Add this URL as a custom MCP connector in Claude to query her background, projects, metrics, skills, voice answers, hiring FAQs, and generate tailored resumes and cover letters.",
       connect: `${process.env.BASE_URL ?? "https://your-railway-url.railway.app"}/mcp`,
       portfolio: "https://hannahkraulikpagade.com",
       linkedin: "https://www.linkedin.com/in/hannah-pagade",
