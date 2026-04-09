@@ -215,7 +215,7 @@ The standard portfolio format has not changed since 2010. A recruiter arrives, c
 Ten tools, each scoped to a single job. Profile, voice, projects, metrics, skills, FAQ answers, hiring brief, and generation. Schema clarity was the first decision because downstream AI synthesis is only as good as the structure it receives.
 
 **Step 2 - Data contract and voice consistency.**
-`hannah-data.ts` is the single source of truth for content. Voice statements are first-person and human, not formal third-person summaries, because the downstream audience is a human reading AI-synthesized output. The distinction shapes how every tool response reads.
+`hannah-data.ts` is the single source of truth for professional content. Voice statements are first-person and human, not formal third-person summaries, because the downstream audience is a human reading AI-synthesized output. The distinction shapes how every tool response reads.
 
 **Step 3 - Transport, reliability, and conversion.**
 The stdio build worked locally and failed at registration. The HTTP MCP transport rebuild was one pivot but a necessary one. Railway auto-deploys on push. The server is stateless by design. Ten tools, one endpoint, zero database. Later passes added trust metadata, hiring-brief depth, explicit contact ordering, and tests so the system stays credible as it grows.
