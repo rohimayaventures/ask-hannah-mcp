@@ -39,6 +39,35 @@ An MCP (Model Context Protocol) server that lets any recruiter or hiring manager
 - "Does she know prompt engineering and MCP?"
 - "What design systems has she built?"
 
+## Recruiter Quick Start
+
+Use these prompts to evaluate fit quickly:
+
+- "Give me a 60-second hiring brief for `conversational-ai-pm`."
+- "Why is Hannah a fit for `ux-ai`?"
+- "Show top 3 validated proof points for `head-of-product`."
+- "Generate a tailored resume for this JD: [paste full job description]."
+- "Generate a tailored cover letter for this JD: [paste full job description]."
+
+Supported hiring-brief focus values:
+
+- `founding-pm`
+- `head-of-product`
+- `ai-pm`
+- `ux-ai`
+- `healthcare-ai`
+- `general-ai`
+- `conversational-ai-pm`
+- `conversational-ai-ux-design`
+- `general-ai-product`
+
+## 2-Minute Evaluation Flow
+
+1. Run `hannah_get_hiring_brief` with a role focus.
+2. Open at least 2 live product links from the brief.
+3. Review top quantified outcomes and role-specific strengths.
+4. Generate a tailored resume or cover letter only if needed.
+
 ## Local Development
 
 ```bash
