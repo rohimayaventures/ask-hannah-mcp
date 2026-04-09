@@ -594,9 +594,166 @@ Focus options support recruiter shorthand and conversational AI aliases:
       "How she handles regulated-domain trade-offs between speed, trust, and compliance.",
     ];
 
+    const hardQuestionsIWelcome = [
+      "Tell me where one of your product bets was wrong and what you changed quickly.",
+      "How do you decide what not to ship in a 0-to-1 build with stakeholder pressure?",
+      "How do you evaluate conversational AI quality beyond happy-path demos?",
+      "Where do you draw the line between speed and safety in high-stakes AI contexts?",
+      "How would you structure your first 90 days in this exact role and why?",
+    ];
+
+    const founderRisksAndMitigations = [
+      {
+        risk: "Concern that healthcare depth may narrow cross-domain product range.",
+        mitigation:
+          "Portfolio evidence spans healthcare, fintech, enterprise conversational AI, workforce technology, and consumer products with live outputs.",
+      },
+      {
+        risk: "Concern about balancing strategy with execution in early-stage environments.",
+        mitigation:
+          "Demonstrated founder-style ownership from concept through shipping, including scoping, UX, prompt architecture, and production delivery.",
+      },
+      {
+        risk: "Concern about AI trust/safety maturity under release pressure.",
+        mitigation:
+          "Explicit guardrails, escalation logic, validation patterns, and failure-mode thinking are built into shipped conversational systems.",
+      },
+    ];
+
+    const scorecardByFocus: Record<CanonicalRoleFocus, { speed_to_value: number; execution_depth: number; cross_functional_leadership: number; ai_safety_maturity: number }> =
+      {
+        "founding-pm": { speed_to_value: 5, execution_depth: 5, cross_functional_leadership: 5, ai_safety_maturity: 4 },
+        "head-of-product": { speed_to_value: 4, execution_depth: 5, cross_functional_leadership: 5, ai_safety_maturity: 4 },
+        "ai-pm": { speed_to_value: 4, execution_depth: 4, cross_functional_leadership: 4, ai_safety_maturity: 5 },
+        "ux-ai": { speed_to_value: 4, execution_depth: 4, cross_functional_leadership: 4, ai_safety_maturity: 5 },
+        "healthcare-ai": { speed_to_value: 4, execution_depth: 4, cross_functional_leadership: 4, ai_safety_maturity: 5 },
+        "general-ai": { speed_to_value: 4, execution_depth: 4, cross_functional_leadership: 4, ai_safety_maturity: 4 },
+      };
+
+    const first30_60_90ByFocus: Record<CanonicalRoleFocus, { day30: string[]; day60: string[]; day90: string[] }> = {
+      "founding-pm": {
+        day30: [
+          "Map founder goals, user pain, and technical constraints into a single decision framework.",
+          "Define first-release success metrics and failure boundaries for conversational behavior.",
+          "Prioritize the smallest lovable flow with explicit non-goals to preserve velocity.",
+        ],
+        day60: [
+          "Ship and instrument the first production conversation loop with quality checkpoints.",
+          "Run structured user feedback and failure analysis, then tighten prompts and UX flow.",
+          "Stand up a weekly product-engineering-quality operating rhythm.",
+        ],
+        day90: [
+          "Demonstrate measurable improvement in conversion, completion, or turn-efficiency goals.",
+          "Publish v2 roadmap tied to validated learnings and unit economics.",
+          "Institutionalize release criteria for speed + trust so scaling does not erode quality.",
+        ],
+      },
+      "head-of-product": {
+        day30: [
+          "Audit current strategy, roadmap quality, and cross-functional operating gaps.",
+          "Align leadership on a focused product thesis and measurable quarterly outcomes.",
+          "Define portfolio priorities and decision rights across product/design/engineering.",
+        ],
+        day60: [
+          "Stabilize planning cadence, scorecards, and execution accountability mechanisms.",
+          "Reframe roadmap to highlight highest-leverage bets and remove low-signal work.",
+          "Establish product quality and trust standards for AI feature delivery.",
+        ],
+        day90: [
+          "Show progress against agreed business and product KPI targets.",
+          "Operationalize hiring/growth plan for product function maturity.",
+          "Deliver a durable product operating model that scales with team growth.",
+        ],
+      },
+      "ai-pm": {
+        day30: [
+          "Clarify target user outcomes and evaluation rubric for AI behavior quality.",
+          "Identify top model and UX failure modes for immediate mitigation.",
+          "Prioritize highest-value use cases with clear launch guardrails.",
+        ],
+        day60: [
+          "Ship initial AI workflow improvements with instrumentation and review loops.",
+          "Improve prompt, policy, and escalation behavior from real user interactions.",
+          "Align stakeholders on trade-offs between latency, quality, and safety.",
+        ],
+        day90: [
+          "Demonstrate outcome lift tied to usage, completion, and trust metrics.",
+          "Codify repeatable AI release process with evaluation checkpoints.",
+          "Publish next-phase roadmap grounded in observed product behavior.",
+        ],
+      },
+      "ux-ai": {
+        day30: [
+          "Map conversational journeys, user intents, and trust breakpoints.",
+          "Define conversation quality standards across tone, clarity, and escalation behavior.",
+          "Prioritize critical UX improvements that remove friction quickly.",
+        ],
+        day60: [
+          "Deliver updated dialogue flows and edge-case handling patterns.",
+          "Run usability and comprehension testing with structured scoring.",
+          "Align design decisions with implementation constraints and model behavior realities.",
+        ],
+        day90: [
+          "Show measurable gains in flow completion, user confidence, and handoff quality.",
+          "Package reusable conversation design patterns for team-wide use.",
+          "Set next-quarter UX roadmap tied to observed behavioral outcomes.",
+        ],
+      },
+      "healthcare-ai": {
+        day30: [
+          "Map clinical-risk pathways and define escalation boundaries.",
+          "Align product and compliance expectations around safe interaction patterns.",
+          "Prioritize highest-impact use cases with measurable safety criteria.",
+        ],
+        day60: [
+          "Ship guarded conversational flows with validation and refusal protocols.",
+          "Run scenario-based checks across high-acuity and ambiguity-heavy cases.",
+          "Tighten communication clarity for patient and clinician-facing interactions.",
+        ],
+        day90: [
+          "Demonstrate improved safety adherence and interaction completeness.",
+          "Operationalize healthcare AI quality review cadence with cross-functional stakeholders.",
+          "Publish risk-informed roadmap for broader deployment.",
+        ],
+      },
+      "general-ai": {
+        day30: [
+          "Establish top AI opportunities and success metrics by user segment.",
+          "Audit delivery constraints and trust risks across current roadmap.",
+          "Define near-term priorities with explicit value and feasibility scoring.",
+        ],
+        day60: [
+          "Ship highest-value improvements and validate with real usage signals.",
+          "Tighten collaboration patterns across design, engineering, and product.",
+          "Document repeatable process for evaluating and shipping AI changes.",
+        ],
+        day90: [
+          "Show measurable business and product KPI movement.",
+          "Deliver next-phase roadmap prioritized by evidence over intuition.",
+          "Institutionalize quality standards for scalable AI product execution.",
+        ],
+      },
+    };
+
+    const whyNowTransitionByFocus: Record<CanonicalRoleFocus, string> = {
+      "founding-pm":
+        "Now is the right moment because this role needs founder-level ownership, not siloed PM coordination. Hannah's recent shipped AI portfolio and prior high-stakes leadership make her immediately effective in a 0-to-1 environment.",
+      "head-of-product":
+        "Now is the right moment because this role needs strategy plus execution credibility at once. Hannah brings operating rigor, AI product depth, and the ability to align cross-functional teams quickly.",
+      "ai-pm":
+        "Now is the right moment because this role requires practical AI product judgment grounded in shipped work. Hannah combines delivery speed with evaluation, trust, and user-outcome discipline.",
+      "ux-ai":
+        "Now is the right moment because this role requires conversational UX depth tied to production constraints. Hannah has repeatedly designed and shipped trust-aware AI interaction systems.",
+      "healthcare-ai":
+        "Now is the right moment because this role needs domain fluency plus AI execution. Hannah bridges clinical risk understanding with modern conversational AI product delivery.",
+      "general-ai":
+        "Now is the right moment because this role benefits from a builder who can move across strategy, UX, and implementation while keeping outcomes measurable and trust-centered.",
+    };
+
     const data = {
       candidateSnapshot:
         "AI product leader across product management and UX design with 17 years of high-stakes operating experience and multiple live AI products. Strong in strategy and execution, with depth in conversational AI behavior, trust design, and shipping velocity.",
+      whyNowTransition: whyNowTransitionByFocus[normalizedFocus],
       focusRequested: focus,
       focusApplied: normalizedFocus,
       roleLens: canonicalRoleLabels[normalizedFocus],
@@ -618,6 +775,10 @@ Focus options support recruiter shorthand and conversational AI aliases:
       },
       liveLinks: topLiveLinks,
       suggestedInterviewTopics: interviewTopics,
+      hardQuestionsIWelcome,
+      founderRisksAndMitigations,
+      roleScorecard: scorecardByFocus[normalizedFocus],
+      first30_60_90: first30_60_90ByFocus[normalizedFocus],
       freshness: {
         profileDataLastUpdated: freshness.profileDataLastUpdated,
         mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
@@ -639,6 +800,7 @@ Focus options support recruiter shorthand and conversational AI aliases:
 - Top proof points: ${data.topProofPoints.join(" | ")}
 - Availability: ${data.availability}
 - Location: ${data.location} (Relocation: ${data.relocation.openToRelocation ? "Yes" : "No"})
+- Why now: ${data.whyNowTransition}
 - Next step: ${data.nextStepCTA}`;
       return { content: [{ type: "text", text: summary }], structuredContent: data };
     }
@@ -647,6 +809,9 @@ Focus options support recruiter shorthand and conversational AI aliases:
 
 ## Candidate Snapshot
 ${data.candidateSnapshot}
+
+## Why Now
+${data.whyNowTransition}
 
 ## Role Focus
 Requested: ${focus}
@@ -681,6 +846,26 @@ ${data.liveLinks.map((x) => `- ${x.name}: ${x.url}`).join("\n")}
 
 ## Suggested Interview Topics
 ${data.suggestedInterviewTopics.map((x) => `- ${x}`).join("\n")}
+
+## Hard Questions I Welcome
+${data.hardQuestionsIWelcome.map((x) => `- ${x}`).join("\n")}
+
+## Founder Risks and Mitigations
+${data.founderRisksAndMitigations.map((x) => `- Risk: ${x.risk}\n  Mitigation: ${x.mitigation}`).join("\n")}
+
+## Role Scorecard (1-5)
+- Speed to value: ${data.roleScorecard.speed_to_value}
+- Execution depth: ${data.roleScorecard.execution_depth}
+- Cross-functional leadership: ${data.roleScorecard.cross_functional_leadership}
+- AI safety maturity: ${data.roleScorecard.ai_safety_maturity}
+
+## First 30/60/90
+### Day 30
+${data.first30_60_90.day30.map((x) => `- ${x}`).join("\n")}
+### Day 60
+${data.first30_60_90.day60.map((x) => `- ${x}`).join("\n")}
+### Day 90
+${data.first30_60_90.day90.map((x) => `- ${x}`).join("\n")}
 
 ## Notes
 - ${data.anonymizationNotice}
