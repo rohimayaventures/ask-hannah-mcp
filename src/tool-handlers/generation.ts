@@ -52,6 +52,40 @@ type GenerationDeps = {
 const RESUME_JSON_SHAPE_EXAMPLE = `Example shape only (replace with real content from verified data):
 {"summary":"First-person warm summary paragraph.","skills":["Skill one","Skill two","Skill three"],"experience":[{"headline":"Role title | Context","bullets":["Impact bullet tied to verified metrics only","Another bullet"]}],"projects":[{"name":"Product name","bullets":["What shipped","Proof point"]}],"education":"Degree, school, status line."}`;
 
+/** Universal experience headline (title) mirroring from the job posting; bullets and employers stay verified. */
+const RESUME_EXPERIENCE_TITLE_MIRRORING_RULE = [
+  "TITLE MIRRORING RULE — applies to every experience entry on the resume, not just the primary role:",
+  "",
+  "Read the job title and job description provided. Extract the core role language: what the employer calls the function, the seniority level, and the domain. Then apply that language consistently across ALL experience entries as follows:",
+  "",
+  "PRIMARY ROLE (Rohimaya Health AI):",
+  "Mirror the exact job title from the posting or the closest one-to-one equivalent. If the posting says 'Conversational UX Designer' the title is 'Conversational UX Designer'. If it says 'Head of Product' the title is 'Head of Product'. If it says 'Senior AI Product Manager' the title is 'Senior AI Product Manager'.",
+  "",
+  "SECONDARY ROLE (Moonlit Studios):",
+  "Use the same function and domain from the job description but framed for a consulting or freelance context. Examples:",
+  "- Posting says 'Conversational UX Designer' → 'Conversational UX Designer, Consultant'",
+  "- Posting says 'Head of Product' → 'Head of Product, Consultant'",
+  "- Posting says 'AI Product Manager' → 'AI Product Manager, Consultant'",
+  "",
+  "STAKEHOLDER AND DOMAIN ROLE (clinical consolidation block):",
+  "Title should describe the domain depth most relevant to what the posting values. Examples:",
+  "- Posting emphasizes regulated environments or healthcare → 'Director of Clinical Operations'",
+  "- Posting emphasizes enterprise stakeholder management → 'Enterprise Operations and Stakeholder Lead'",
+  "- Posting emphasizes research or discovery → 'Clinical Research and Operations Lead'",
+  "- Posting emphasizes product research or UX research → 'UX Research and Domain Lead'",
+  "",
+  "SUPPORTING AI PRODUCT ROLE (if present, e.g. Healthcare AI Product Lead):",
+  "Mirror the domain and seniority from the posting in a product context. Examples:",
+  "- Posting says 'Conversational UX Designer' → 'Conversational AI Product Lead'",
+  "- Posting says 'Head of Product' → 'Head of Product, Healthcare AI'",
+  "- Posting says 'AI Product Manager' → 'AI Product Manager, Healthcare'",
+  "",
+  "GENERAL RULE for all entries:",
+  "Never use generic internal titles like 'Founder', 'AI Product Lead', or 'Conversation UX Lead and Prompt Architect' unless those exact words appear in the job description. Always use the language the employer used. The goal is that every title on the resume reads as if Hannah has been doing exactly what they are hiring for.",
+  "",
+  "FIELD SCOPE: Apply this rule only to the job title portion of each experience headline. Do not change verified employer names, date ranges, locations, or bullet text except for normal wording polish. Bullets must remain grounded ONLY in verified metrics and employers from this system context.",
+].join("\n");
+
 const COVER_JSON_SHAPE_EXAMPLE = `Example shape only:
 {"salutation":"Dear Hiring Team,","paragraphs":["First paragraph body.","Second paragraph body.","Third paragraph body."],"signOff":"Sincerely,\\nHannah Kraulik Pagade\\nhannah.pagade@gmail.com"}`;
 
@@ -127,6 +161,8 @@ export async function handleResumeGeneration(
     "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15. Use only the metrics and employers listed above.",
     "",
     "JOB POSTING MATERIAL: The user message includes JOB SIGNALS and/or a job description section from the employer posting. Use that material only to prioritize wording, ordering, and emphasis. It is not verified truth about Hannah. All factual claims about Hannah must come from the verified system context above.",
+    "",
+    RESUME_EXPERIENCE_TITLE_MIRRORING_RULE,
     ...resumeAtsSystemFragments(resumeAtsMode),
     "",
     "OUTPUT CONTRACT (non-negotiable): Return a single JSON object only. No markdown code fences. No commentary before or after the JSON.",
@@ -161,7 +197,7 @@ export async function handleResumeGeneration(
       "\n\nJSON requirements:\n" +
       "- summary: one cohesive first-person summary paragraph.\n" +
       "- skills: at least 3 concise skill lines.\n" +
-      "- experience: one or more sections; each has headline (for example role and context) and impact bullets grounded ONLY in verified metrics and employers above.\n" +
+      "- experience: one or more sections; each has headline and impact bullets. For every entry, set the job title in headline using the TITLE MIRRORING RULE in the system message (all experience entries, not only the first). Keep verified employer names, dates, and bullet facts unchanged—only adapt titles per that rule. Bullets grounded ONLY in verified metrics and employers above.\n" +
       "- projects: one or more products from the verified list; bullets must reflect verified summaries and outcomes only.\n" +
       "- education: one string covering degree, school, and status.\n\n" +
       RESUME_JSON_SHAPE_EXAMPLE +
