@@ -203,7 +203,7 @@ A live MCP server that turns Hannah's professional portfolio into a queryable da
 
 ### Project description (case study hero)
 
-Most portfolios are static websites. Ask Hannah MCP is a live API that AI systems can call directly. Recruiters and hiring managers who connect it to Claude can query her background, projects, metrics, voice statements, and a role-focused hiring brief the same way they would query any other data source. The product demonstrates in its own structure what it claims about the builder: she understands how AI systems connect to each other, how to design tools for agentic workflows, and how to ship infrastructure that works.
+Most portfolios are static websites. Ask Hannah MCP is a live API that AI systems can call directly. Recruiters and hiring managers who connect it to Claude can query her background, projects, metrics, voice statements, and a role-focused hiring brief the same way they would query any other data source. The product demonstrates in its own structure what it claims about the builder: she understands how AI systems connect to each other, how to design tools for agentic workflows, and how to ship infrastructure that works. Ten structured tools. The structured data in this server is the canonical fact source for Hannah's professional content.
 
 ### Problem statement
 
