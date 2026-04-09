@@ -1,6 +1,6 @@
 # Ask Hannah MCP Server
 
-An MCP (Model Context Protocol) server that lets any recruiter or hiring manager query Hannah Kraulik Pagade's portfolio, background, projects, and metrics directly from Claude or any MCP-compatible AI tool.
+An MCP (Model Context Protocol) server that helps recruiters and hiring managers evaluate Hannah Kraulik Pagade quickly using structured evidence, role-focused hiring briefs, live product links, and tailored resume/cover-letter generation inside Claude or any MCP-compatible AI tool.
 
 ## Connect to Claude
 
@@ -90,29 +90,19 @@ Concrete example (tool arguments):
 
 ## Troubleshooting
 
-- If generated outputs are summarized by the host model instead of shown directly, prompt: "Paste the tool output only with no extra commentary."
-- If connector setup fails, verify your connector URL ends with `/mcp` and test `https://your-url/health` first.
-- If resume/cover-letter generation fails, verify `ANTHROPIC_API_KEY` is set and valid in Railway Variables.
-- If generation returns empty output, retry with a shorter, cleaner job description (remove long pasted boilerplate).
-- For metric trust details, request JSON output from `hannah_get_metrics`; each metric includes an `evidenceTag`.
+- If Claude summarizes tool output instead of showing it directly, prompt: "Paste the tool output only with no extra commentary."
+- If connector setup fails, confirm your URL ends with `/mcp` and test `https://your-url/health` first.
+- If resume/cover-letter generation fails, confirm `ANTHROPIC_API_KEY` is present and valid in Railway Variables.
+- If generation returns empty output, retry with a shorter JD (3-6 key requirements instead of full boilerplate).
+- For metric trust details, request JSON from `hannah_get_metrics` and review `evidenceTag` + `confidenceNote`.
 
-## Roadmap (Next Phases)
+## Current Capabilities
 
-### Phase 3 — Founder-Depth Narrative
-
-- Add a role-specific 30/60/90-day plan section for `founding-pm` and `head-of-product`.
-- Add "hard questions I welcome" so interviewers can quickly pressure-test fit.
-- Add a risk-and-mitigation section to address common founder concerns directly.
-- Add role scorecards (`speed_to_value`, `execution_depth`, `cross_functional_leadership`, `ai_safety_maturity`).
-- Add a concise "why now" transition line to sharpen narrative clarity.
-
-### Phase 4 — Direct Contact Conversion
-
-- Add `contactOptions` (email, Calendly, optional Zoom booking) as structured output fields.
-- Surface booking/contact options in both `hannah_get_hiring_brief` and `hannah_get_profile`.
-- Add role-specific call booking CTA copy (for example, conversational AI PM fit call).
-- Add optional UTM tracking on contact links for source analytics.
-- Add response-time expectation and preferred contact method to reduce outreach friction.
+- Role-focused hiring briefs support both concise decision mode (`summary`) and deep-dive mode (why now, scorecards, 30/60/90, risks/mitigations, interview prompts).
+- Metrics JSON includes trust metadata (`evidenceTag` and `confidenceNote`) to speed up screening confidence.
+- Resume and cover-letter tools are constrained to verified source data and return standardized error codes with actionable next steps.
+- Freshness metadata is included in outputs and controlled by environment variables.
+- Direct contact conversion supports email, Calendly, optional Zoom booking, LinkedIn, preferred contact method, response-time SLA, timezone, and optional UTM/event suffix controls.
 
 ## Contact Conversion Setup (Phase 4)
 
@@ -126,8 +116,20 @@ Set these in Railway Variables to enable direct recruiter contact conversion:
 - `CONTACT_RESPONSE_TIME_HOURS` (for example `24`)
 - `CALENDLY_UTM_SOURCE` (for source tracking, for example `ask-hannah-mcp`)
 - `CONTACT_TIMEZONE` (for example `America/Denver`)
-- `BOOKING_CTA_LABEL` (for example `Book a fit call`)
+- `BOOKING_CTA_LABEL` (for example `Book a discovery call`)
 - `CALENDLY_EVENT_TYPE` (optional path suffix for event-specific booking links)
+
+Calendly URL rule:
+
+- If `CALENDLY_URL` is already a full event link, leave `CALENDLY_EVENT_TYPE` empty.
+- If `CALENDLY_URL` is only your Calendly handle/root URL, set `CALENDLY_EVENT_TYPE` to the event slug.
+
+## Environment Variables (Source of Truth)
+
+- Railway Variables are the production source of truth.
+- `.env.example` is the safe template (placeholders only).
+- `.env.local` is local-only runtime config and should contain real local secrets/values.
+- Runtime precedence in this project is: explicit env vars -> code defaults from `src/hannah-data.ts`/runtime fallbacks.
 
 ## Local Development
 
