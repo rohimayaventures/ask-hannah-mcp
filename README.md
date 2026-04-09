@@ -106,6 +106,9 @@ Concrete example (tool arguments):
 - Resume and cover-letter tools are constrained to verified source data and return standardized error codes with actionable next steps.
 - Freshness metadata is included in outputs and controlled by environment variables.
 - Direct contact conversion supports email, Calendly, optional Zoom booking, LinkedIn, preferred contact method, response-time SLA, timezone, and optional UTM/event suffix controls.
+- Code is modularized for maintainability: role/focus normalization, contact/freshness helpers, and tool handlers are separated under `src/lib` and `src/tool-handlers`.
+- Test coverage exists for role normalization, Calendly URL handling, and metric evidence tagging via `npm test`.
+- Sample tool JSON payloads are documented in `docs/sample-json-outputs.md`.
 
 ## Contact Conversion Setup
 
@@ -139,6 +142,7 @@ Calendly URL rule:
 ```bash
 npm install
 npm run dev
+npm test
 ```
 
 ## Deploy to Railway

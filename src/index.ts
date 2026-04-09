@@ -4,6 +4,16 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import express, { Request, Response } from "express";
 import { z } from "zod";
 import {
+  collectContactConfigWarnings,
+  createContactOptions,
+  getFreshness,
+  getServiceMeta,
+} from "./lib/contact.js";
+import { canonicalRoleLabels, normalizeRoleFocus, type CanonicalRoleFocus } from "./lib/roles.js";
+import { handleCoverLetterGeneration, handleResumeGeneration } from "./tool-handlers/generation.js";
+import { handleGetMetrics } from "./tool-handlers/metrics.js";
+import { handleGetProfile } from "./tool-handlers/profile.js";
+import {
   profile,
   metrics,
   projects,
@@ -16,184 +26,17 @@ import {
 
 const server = new McpServer({ name: "ask-hannah-mcp-server", version: "1.0.0" });
 const anthropic = new Anthropic();
-const todayUTC = new Date().toISOString().slice(0, 10);
-const freshness = {
-  profileDataLastUpdated: process.env.PROFILE_DATA_LAST_UPDATED ?? dataFreshness.profileDataLastUpdated,
-  mcpContentSetLastUpdated: process.env.MCP_CONTENT_SET_LAST_UPDATED ?? todayUTC,
-};
-const serviceVersion = process.env.APP_VERSION ?? process.env.npm_package_version ?? "1.0.0";
-const buildMeta = {
-  buildDate: process.env.BUILD_DATE ?? freshness.mcpContentSetLastUpdated,
-  gitSha: process.env.GIT_SHA ?? "unknown",
-};
-const contactTrackingSource = process.env.CALENDLY_UTM_SOURCE ?? "ask-hannah-mcp";
-const contactTimezone = process.env.CONTACT_TIMEZONE ?? "America/Denver";
-const bookingCtaLabel = process.env.BOOKING_CTA_LABEL ?? "Book a discovery call";
-const calendlyEventType = process.env.CALENDLY_EVENT_TYPE ?? "";
+const freshness = getFreshness(dataFreshness);
+const { serviceVersion, buildMeta } = getServiceMeta(freshness);
 const anonymizationNotice =
   "Some employer names are intentionally anonymized at this stage. Role scope, measurable outcomes, and context are provided. Full employer detail is shared during recruiter and hiring manager conversations.";
 const documentProvenanceStatement =
   "Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.";
-
-type CanonicalRoleFocus = "founding-pm" | "head-of-product" | "ai-pm" | "ux-ai" | "healthcare-ai" | "general-ai";
-
-const canonicalRoleLabels: Record<CanonicalRoleFocus, string> = {
-  "founding-pm": "Founding PM",
-  "head-of-product": "Head of Product",
-  "ai-pm": "AI Product Manager",
-  "ux-ai": "Conversational AI UX Design",
-  "healthcare-ai": "Healthcare AI Product Lead",
-  "general-ai": "General AI Product",
-};
-
-function normalizeRoleFocus(input: string): CanonicalRoleFocus {
-  if (input === "conversational-ai-pm" || input === "pm" || input === "conversational-ai" || input === "ai-pm") {
-    return "ai-pm";
-  }
-  if (input === "conversational-ai-ux-design" || input === "ux-design" || input === "ux-ai") {
-    return "ux-ai";
-  }
-  if (input === "general-ai-product" || input === "general") {
-    return "general-ai";
-  }
-  if (input === "founding-pm" || input === "head-of-product" || input === "healthcare-ai" || input === "general-ai") {
-    return input;
-  }
-  return "general-ai";
-}
-
-function metricEvidenceTag(
-  metric: string,
-  context: string
-): "operational_leadership" | "usability_research" | "clinical_validation" | "commercial_signal" | "research_validated" | "live_product_observed" {
-  const haystack = `${metric} ${context}`.toLowerCase();
-  if (haystack.includes("clinical validation") || haystack.includes("clinical workup")) {
-    return "clinical_validation";
-  }
-  if (
-    haystack.includes("cost savings") ||
-    haystack.includes("satisfaction improved") ||
-    haystack.includes("audit success") ||
-    haystack.includes("people led") ||
-    haystack.includes("operational")
-  ) {
-    return "operational_leadership";
-  }
-  if (haystack.includes("interview") || haystack.includes("usability") || haystack.includes("sus")) {
-    return "usability_research";
-  }
-  if (haystack.includes("pilot") || haystack.includes("monetized") || haystack.includes("conversion")) {
-    return "commercial_signal";
-  }
-  if (haystack.includes("validation") || haystack.includes("study") || haystack.includes("scenario")) {
-    return "research_validated";
-  }
-  if (haystack.includes("live") || haystack.includes("pilot") || haystack.includes("shipped")) {
-    return "live_product_observed";
-  }
-  return "research_validated";
-}
-
-function metricConfidenceNote(evidenceTag: string): string {
-  switch (evidenceTag) {
-    case "clinical_validation":
-      return "Validated against a real clinical scenario outcome.";
-    case "commercial_signal":
-      return "Indicates market or buyer response in a real-world setting.";
-    case "usability_research":
-      return "Derived from structured research or testing activity.";
-    case "operational_leadership":
-      return "Measured outcome tied to leadership and operational execution.";
-    case "live_product_observed":
-      return "Observed in a live product context.";
-    default:
-      return "Evidence-backed outcome from documented project or operations context.";
-  }
-}
-
-function extractAnthropicText(content: Anthropic.Message["content"]): string {
-  const parts: string[] = [];
-  for (const block of content) {
-    if (block.type === "text" && typeof block.text === "string") {
-      parts.push(block.text);
-    }
-  }
-  return parts.join("\n").trim();
-}
-
-function buildGenerationError(kind: "resume" | "cover_letter", err: unknown): string {
-  const message = err instanceof Error ? err.message : String(err);
-  let code = "ERR_GENERATION_FAILED";
-  if (message.toLowerCase().includes("authentication") || message.includes("401")) code = "ERR_ANTHROPIC_AUTH";
-  else if (message.toLowerCase().includes("rate") || message.includes("429")) code = "ERR_ANTHROPIC_RATE_LIMIT";
-  else if (message.toLowerCase().includes("timeout")) code = "ERR_ANTHROPIC_TIMEOUT";
-  const hint =
-    "Check ANTHROPIC_API_KEY, confirm model availability, and retry with a shorter job description (3-6 key requirements).";
-  const label = kind === "resume" ? "Resume" : "Cover letter";
-  return `[${code}] ${label} generation failed: ${message}. ${hint}`;
-}
-
-function addUtmSource(url: string, source: string): string {
-  if (!url) return url;
-  try {
-    const parsed = new URL(url);
-    if (!parsed.searchParams.has("utm_source")) parsed.searchParams.set("utm_source", source);
-    return parsed.toString();
-  } catch {
-    return url;
-  }
-}
-
-const contactOptions = {
-  email: process.env.CONTACT_EMAIL ?? profile.email,
-  calendlyUrl: addUtmSource(process.env.CALENDLY_URL ?? "", contactTrackingSource),
-  zoomBookingUrl: process.env.ZOOM_BOOKING_URL ?? "",
-  linkedinUrl: process.env.LINKEDIN_URL ?? profile.linkedin,
-  preferredContactMethod: process.env.PREFERRED_CONTACT_METHOD ?? "calendly",
-  responseTimeHours: parseInt(process.env.CONTACT_RESPONSE_TIME_HOURS ?? "24", 10),
-  timezone: contactTimezone,
-  bookingCtaLabel,
-  calendlyEventType,
-};
-
-if (contactOptions.calendlyUrl && calendlyEventType) {
-  contactOptions.calendlyUrl = addUtmSource(
-    `${contactOptions.calendlyUrl.replace(/\/$/, "")}/${calendlyEventType}`,
-    contactTrackingSource
-  );
-}
-
-function collectContactConfigWarnings() {
-  const warnings: string[] = [];
-
-  if (!contactOptions.email || !contactOptions.email.includes("@")) {
-    warnings.push("CONTACT_EMAIL is missing or does not look valid.");
-  }
-
-  if (!contactOptions.linkedinUrl || !/^https?:\/\//.test(contactOptions.linkedinUrl)) {
-    warnings.push("LINKEDIN_URL is missing or not a valid absolute URL.");
-  }
-
-  if (!contactOptions.calendlyUrl && !contactOptions.zoomBookingUrl) {
-    warnings.push("Neither CALENDLY_URL nor ZOOM_BOOKING_URL is configured. Booking CTA will fall back to email only.");
-  }
-
-  if (contactOptions.calendlyUrl && !/^https?:\/\//.test(contactOptions.calendlyUrl)) {
-    warnings.push("CALENDLY_URL is set but not a valid absolute URL.");
-  }
-
-  if (contactOptions.zoomBookingUrl && !/^https?:\/\//.test(contactOptions.zoomBookingUrl)) {
-    warnings.push("ZOOM_BOOKING_URL is set but not a valid absolute URL.");
-  }
-
-  if (!Number.isFinite(contactOptions.responseTimeHours) || contactOptions.responseTimeHours <= 0) {
-    warnings.push("CONTACT_RESPONSE_TIME_HOURS should be a positive number.");
-  }
-
-  return warnings;
-}
-
-const contactConfigWarnings = collectContactConfigWarnings();
+const contactOptions = createContactOptions({
+  email: profile.email,
+  linkedin: profile.linkedin,
+});
+const contactConfigWarnings = collectContactConfigWarnings(contactOptions);
 
 // ── Tool 1: hannah_get_profile ───────────────────────────────────────────────
 
@@ -211,84 +54,7 @@ Examples:
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
-  async ({ format }) => {
-    const data = {
-      name: profile.name,
-      positioning: profile.positioning,
-      summary: profile.summary,
-      currentRole: profile.currentRole,
-      location: profile.location,
-      openToRelocation: profile.openToRelocation,
-      preferredLocations: profile.preferredLocations,
-      education: profile.education,
-      certifications: profile.certifications,
-      targetRoles: profile.targetRoles,
-      contact: { email: profile.email, portfolio: profile.portfolio, linkedin: profile.linkedin, github: profile.github },
-      contactOptions,
-      compensation: profile.compensation,
-      availability: profile.availability,
-      profileDataLastUpdated: freshness.profileDataLastUpdated,
-      mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
-    };
-
-    if (format === "json") {
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data };
-    }
-
-    const md = `# ${profile.name}
-
-**${profile.title}**
-
-## Who She Is
-${profile.summary}
-
-## Background
-${profile.background.summary}
-
-## Current Role
-${profile.currentRole}
-
-## Education
-**${profile.education.degree}** — ${profile.education.school}
-Status: ${profile.education.status}, expected ${profile.education.expected}
-Relevant coursework: ${profile.education.relevantCoursework.join(", ")}
-
-## Certifications
-${profile.certifications.map((c) => `- ${c}`).join("\n")}
-
-## Target Roles
-${profile.targetRoles.map((r) => `- ${r}`).join("\n")}
-
-## Location
-${profile.location}. Open to relocation. Preferred: ${profile.preferredLocations.join(", ")}.
-
-## Availability
-${profile.availability}
-
-## Compensation
-${profile.compensation}
-
-## Contact
-- Portfolio: ${profile.portfolio}
-- LinkedIn: ${profile.linkedin}
-- GitHub: ${profile.github}
-- Email: ${profile.email}
-
-## Direct Contact Options
-- Preferred contact method: ${contactOptions.preferredContactMethod}
-- Expected response time: within ${contactOptions.responseTimeHours} hours
-- Time zone: ${contactOptions.timezone}
-- Calendly: ${contactOptions.calendlyUrl || "Not configured"}
-- Zoom booking: ${contactOptions.zoomBookingUrl || "Not configured"}
-- LinkedIn: ${contactOptions.linkedinUrl}
-- Email: ${contactOptions.email}
-
-## Data Freshness
-- Profile data last updated: ${freshness.profileDataLastUpdated}
-- MCP content set last updated: ${freshness.mcpContentSetLastUpdated}`;
-
-    return { content: [{ type: "text", text: md }] };
-  }
+  async ({ format }) => handleGetProfile({ format }, { profile, contactOptions, freshness })
 );
 
 // ── Tool 2: hannah_list_projects ─────────────────────────────────────────────
@@ -304,7 +70,7 @@ Examples:
 - After listing, use hannah_get_project_detail to go deeper on any specific project`,
     inputSchema: {
       status: z.enum(["all", "live", "building"]).default("all").describe("Filter by status"),
-      format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+      format: z.enum(["markdown", "json", "summary"]).default("markdown").describe("Output format"),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
@@ -423,50 +189,7 @@ Examples:
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
-  async ({ category, format }) => {
-    const opsMetrics = category === "product" ? [] : metrics.operations;
-    const prodMetrics = category === "operations" ? [] : metrics.product;
-
-    if (format === "json") {
-      const operations = opsMetrics.map((m) => ({
-        ...m,
-        evidenceTag: metricEvidenceTag(m.metric, m.context),
-        confidenceNote: metricConfidenceNote(metricEvidenceTag(m.metric, m.context)),
-      }));
-      const product = prodMetrics.map((m) => ({
-        ...m,
-        evidenceTag: metricEvidenceTag(m.metric, m.context),
-        confidenceNote: metricConfidenceNote(metricEvidenceTag(m.metric, m.context)),
-      }));
-      const data = { operations, product, anonymizationNotice };
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data };
-    }
-
-    let md = `# Hannah Kraulik Pagade — Validated Metrics\n\nAll metrics are real and verified. None are estimated or rounded.\n\n${anonymizationNotice}\n\n`;
-
-    if (opsMetrics.length > 0) {
-      md += `## Operations Leadership\n\n`;
-      for (const m of opsMetrics) {
-        md += `### ${m.metric}\n${m.context}\n`;
-        if ("employer" in m && m.employer) md += `Employer: ${m.employer}\n`;
-        if ("role" in m && m.role) md += `Role: ${m.role}\n`;
-        if ("dates" in m && m.dates) md += `Period: ${m.dates}\n`;
-        md += `\n`;
-      }
-    }
-
-    if (prodMetrics.length > 0) {
-      md += `## AI Product Work\n\n`;
-      for (const m of prodMetrics) {
-        md += `### ${m.metric}\n${m.context}\n`;
-        if ("study" in m && m.study) md += `Study: ${m.study}\n`;
-        if ("product" in m && m.product) md += `Product: ${m.product}\n`;
-        md += `\n`;
-      }
-    }
-
-    return { content: [{ type: "text", text: md }] };
-  }
+  async ({ category, format }) => handleGetMetrics({ category, format }, { metrics, anonymizationNotice })
 );
 
 // ── Tool 5: hannah_get_skills ────────────────────────────────────────────────
@@ -1159,96 +882,11 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
-  async ({ jobTitle, company, jobDescription, roleType }) => {
-    const normalizedRoleType = normalizeRoleFocus(roleType);
-    const roleLensLabel = canonicalRoleLabels[normalizedRoleType];
-    const systemLines = [
-      "You are generating a tailored resume for Hannah Kraulik Pagade. Use ONLY the verified data provided. Do not invent metrics, employers, dates, or accomplishments not listed here. Your job is to rewrite and optimize language and ordering only.",
-      "",
-      "POSITIONING: " + profile.positioning,
-      "ROLE LENS: " + roleLensLabel,
-      "YEARS: " + profile.background.yearsExperience + " years (2009 to present)",
-      "BACKGROUND: " + profile.background.summary,
-      "LEADERSHIP: " + profile.background.leadershipDepth,
-      "EDUCATION: " + profile.education.degree + " at " + profile.education.school + ", " + profile.education.status + ", expected " + profile.education.expected,
-      "CERTIFICATIONS: " + profile.certifications.join(", "),
-      "CURRENT ROLE: " + profile.currentRole,
-      "LOCATION: " + profile.location + " — open to relocation including San Francisco, open to remote",
-      "",
-      "VERIFIED OPERATIONS METRICS:",
-      ...metrics.operations.map((m) => "- " + m.metric + " | " + m.context + " | " + ("employer" in m ? m.employer : "") + " | " + ("role" in m ? m.role : "") + " | " + ("dates" in m ? m.dates : "")),
-      "",
-      "VERIFIED PRODUCT METRICS:",
-      ...metrics.product.map((m) => "- " + m.metric + " | " + m.context),
-      "",
-      "LIVE PRODUCTS:",
-      ...projects.filter((p) => p.status === "live").map((p) => "- " + p.name + " (" + p.domain + ") at " + p.liveUrl + ": " + p.summary),
-      "",
-      "IN DEVELOPMENT:",
-      ...projects.filter((p) => p.status === "building").map((p) => "- " + p.name + " (" + p.domain + "): " + p.summary),
-      "",
-      "TECHNICAL SKILLS: " + skills.technical.join(", "),
-      "PRODUCT SKILLS: " + skills.product.slice(0, 15).join(", "),
-      "DOMAIN EXPERTISE: " + skills.domain.join(", "),
-      "",
-      "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15. Use only the metrics and employers listed above.",
-      "",
-      "OUTPUT CONTRACT (non-negotiable): Your entire response must be only the resume text, ready to paste into a document.",
-      "Do not include any preamble or postscript: no 'Here is', no 'Below is', no commentary on how the resume was tailored, no callouts, no meta bullet lists, no 'things to update', no questions, and no offer to write a cover letter.",
-      "Your first character must be the first character of the resume (for example the candidate name or the first section heading). Your last character must be the last character of the resume.",
-    ];
-
-    const userPrompt =
-      "Generate a tailored resume for Hannah for: " +
-      jobTitle +
-      " at " +
-      company +
-      ". Role type: " +
-      roleType +
-      " (normalized role lens: " +
-      roleLensLabel +
-      ")" +
-      ".\n\nJob Description:\n" +
-      jobDescription +
-      "\n\nFormat: Summary, Skills, Experience, Projects, Education. Write the summary in first person, warm and direct. Keep bullet points concise and impact-focused. End with: 'Full downloadable PDF available at hannahkraulikpagade.com/resume-builder'" +
-      "\n\nReply with the resume only — no other words before or after it.";
-
-    try {
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        system: systemLines.join("\n"),
-        messages: [{ role: "user", content: userPrompt }],
-      });
-
-      const text = extractAnthropicText(response.content);
-      if (!text) {
-        return {
-          isError: true,
-          content: [{
-            type: "text",
-            text: "[ERR_RESUME_EMPTY] Resume generation returned empty output. Check ANTHROPIC_API_KEY and retry with a shorter, cleaner job description (3-6 key requirements).",
-          }],
-        };
-      }
-
-      return {
-        content: [{ type: "text", text }],
-        structuredContent: {
-          document: "resume",
-          text,
-          provenance: documentProvenanceStatement,
-          profileDataLastUpdated: freshness.profileDataLastUpdated,
-          mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
-        },
-      };
-    } catch (err) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: buildGenerationError("resume", err) }],
-      };
-    }
-  }
+  async ({ jobTitle, company, jobDescription, roleType }) =>
+    handleResumeGeneration(
+      { jobTitle, company, jobDescription, roleType },
+      { anthropic, profile, metrics, projects, skills, voiceAnswers, freshness, documentProvenanceStatement }
+    )
 );
 
 // ── Tool 10: hannah_generate_cover_letter ────────────────────────────────────
@@ -1274,85 +912,11 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
-  async ({ jobTitle, company, jobDescription, hiringManagerName }) => {
-    const systemLines = [
-      "You are generating a cover letter for Hannah Kraulik Pagade. Write in her warm direct first-person voice. Use ONLY the verified data provided.",
-      "",
-      "VOICE REFERENCE (this is how Hannah sounds):",
-      voiceAnswers.whatMakesMeDifferent,
-      "",
-      "POSITIONING: " + profile.positioning,
-      "YEARS: " + profile.background.yearsExperience + " years (2009 to present)",
-      "BACKGROUND: " + profile.background.summary,
-      "EDUCATION: " + profile.education.degree + " at " + profile.education.school + ", expected " + profile.education.expected,
-      "CURRENT ROLE: " + profile.currentRole,
-      "",
-      "KEY METRICS:",
-      ...metrics.operations.slice(0, 3).map((m) => "- " + m.metric + ": " + m.context),
-      ...metrics.product.slice(0, 3).map((m) => "- " + m.metric + ": " + m.context),
-      "",
-      "LIVE PRODUCTS:",
-      ...projects.filter((p) => p.status === "live").map((p) => "- " + p.name + " (" + p.domain + ") at " + p.liveUrl),
-      "",
-      "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15. Three paragraphs maximum. End with: hannah.pagade@gmail.com or hannahkraulikpagade.com",
-      "",
-      "OUTPUT CONTRACT (non-negotiable): Your entire response must be only the cover letter text.",
-      "Do not include any preamble or postscript: no 'Here is', no commentary on tailoring, no callouts, no questions, and no offer to write a resume.",
-      "Your first character must be the salutation (e.g. 'Dear'). Your last line must be the sign-off.",
-    ];
-
-    const greeting = hiringManagerName
-      ? "Dear " + hiringManagerName + ","
-      : "Dear Hiring Team at " + company + ",";
-
-    const userPrompt =
-      "Write a three-paragraph cover letter for Hannah applying to " +
-      jobTitle +
-      " at " +
-      company +
-      ".\n\nOpening: " +
-      greeting +
-      "\n\nJob Description:\n" +
-      jobDescription +
-      "\n\nMake it warm, direct, and specific to this role. First paragraph: who she is and why this role specifically. Second paragraph: the most relevant proof from her background. Third paragraph: what she brings to the team and a clear call to action. Sign off as Hannah Kraulik Pagade." +
-      "\n\nReply with the letter only — no other words before or after it.";
-
-    try {
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        system: systemLines.join("\n"),
-        messages: [{ role: "user", content: userPrompt }],
-      });
-
-      const text = extractAnthropicText(response.content);
-      if (!text) {
-        return {
-          isError: true,
-          content: [{
-            type: "text",
-            text: "[ERR_COVER_LETTER_EMPTY] Cover letter generation returned empty output. Check ANTHROPIC_API_KEY and retry with a shorter, cleaner job description (3-6 key requirements).",
-          }],
-        };
-      }
-
-      return {
-        content: [{ type: "text", text }],
-        structuredContent: {
-          document: "cover_letter",
-          text,
-          provenance: documentProvenanceStatement,
-          profileDataLastUpdated: freshness.profileDataLastUpdated,
-          mcpContentSetLastUpdated: freshness.mcpContentSetLastUpdated,
-        },
-      };
-    } catch (err) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: buildGenerationError("cover_letter", err) }],
-      };
-    }
-  }
+  async ({ jobTitle, company, jobDescription, hiringManagerName }) =>
+    handleCoverLetterGeneration(
+      { jobTitle, company, jobDescription, hiringManagerName },
+      { anthropic, profile, metrics, projects, skills, voiceAnswers, freshness, documentProvenanceStatement }
+    )
 );
 
 // ── HTTP Server ───────────────────────────────────────────────────────────────
