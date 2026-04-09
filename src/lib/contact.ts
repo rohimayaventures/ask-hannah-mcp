@@ -7,6 +7,13 @@ type ProfileContactDefaults = {
   linkedin: string;
 };
 
+/** If `value` is a markdown link `[label](https://...)`, returns the URL; otherwise returns `value` (for profile defaults shown as markdown in tools). */
+export function urlFromMarkdownOrRaw(value: string): string {
+  const trimmed = value.trim();
+  const match = /^\[[^\]]+\]\((https?:\/\/[^)]+)\)\s*$/.exec(trimmed);
+  return match ? match[1] : trimmed;
+}
+
 export type ContactOptions = {
   email: string;
   calendlyUrl: string;
@@ -74,7 +81,10 @@ export function createContactOptions(profileDefaults: ProfileContactDefaults): C
   calendlyUrl = applyCalendlyEventType(calendlyUrl, calendlyEventType, contactTrackingSource);
 
   const zoomBookingUrl = addUtmSource(process.env.ZOOM_BOOKING_URL ?? "", contactTrackingSource);
-  const linkedinUrl = addUtmSource(process.env.LINKEDIN_URL ?? profileDefaults.linkedin, contactTrackingSource);
+  const linkedinUrl = addUtmSource(
+    process.env.LINKEDIN_URL ?? urlFromMarkdownOrRaw(profileDefaults.linkedin),
+    contactTrackingSource
+  );
 
   return {
     email: process.env.CONTACT_EMAIL ?? profileDefaults.email,

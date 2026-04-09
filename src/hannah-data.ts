@@ -23,9 +23,9 @@ export const voiceAnswers = {
 // ─── ANTICIPATED QUESTIONS ────────────────────────────────────────────────────
 
 export const anticipatedQuestions: Record<string, string> = {
-  availability: `Two weeks from the time of offer is the standard. If there is a specific start date that matters for the role, the best thing to do is reach out directly through the contact page at hannahkraulikpagade.com and Hannah can work through that together with you.`,
+  availability: `Two weeks from the time of offer is the standard. If there is a specific start date that matters for the role, the best thing to do is reach out directly through the contact page at [hannahkraulikpagade.com/connect](https://hannahkraulikpagade.com/connect) and Hannah can work through that together with you.`,
 
-  compensation: `Hannah prefers to have that conversation once there is mutual fit on both sides. It is worth the conversation first. You can reach her through the contact page at hannahkraulikpagade.com.`,
+  compensation: `Hannah prefers to have that conversation once there is mutual fit on both sides. It is worth the conversation first. You can reach her through the contact page at [hannahkraulikpagade.com/connect](https://hannahkraulikpagade.com/connect).`,
 
   remote: `Hannah is based in Westminster, Colorado and is open to relocation, hybrid arrangements, and fully remote roles. San Francisco is a preferred destination if relocating. She does not need a local role to consider an opportunity seriously.`,
 
@@ -63,9 +63,9 @@ export const profile = {
   openToRelocation: true,
   preferredLocations: ["San Francisco, CA", "Remote"],
   email: "hannah.pagade@gmail.com",
-  portfolio: "https://hannahkraulikpagade.com",
-  linkedin: "https://www.linkedin.com/in/hannah-pagade",
-  github: "https://github.com/rohimayaventures",
+  portfolio: "[hannahkraulikpagade.com](https://hannahkraulikpagade.com)",
+  linkedin: "[linkedin.com/in/hannah-pagade](https://www.linkedin.com/in/hannah-pagade)",
+  github: "[github.com/rohimayaventures](https://github.com/rohimayaventures)",
   currentRole: "Licensed Practical Nurse at PAM Health Rehabilitation Hospital of Westminster, CO",
   education: {
     degree: "MS, Artificial Intelligence and Machine Learning",
@@ -108,9 +108,9 @@ export const profile = {
     "Healthcare AI Product Lead",
   ],
 
-  compensation: `Hannah prefers to have that conversation once there is mutual fit on both sides. Reach her through the contact page at hannahkraulikpagade.com.`,
+  compensation: `Hannah prefers to have that conversation once there is mutual fit on both sides. Reach her through the contact page at [hannahkraulikpagade.com/connect](https://hannahkraulikpagade.com/connect).`,
 
-  availability: `Two weeks from the time of offer. If there is a specific date in mind, reach out through the contact page and Hannah can work through that together with you.`,
+  availability: `Two weeks from the time of offer. If there is a specific date in mind, reach out through the contact page at [hannahkraulikpagade.com/connect](https://hannahkraulikpagade.com/connect) and Hannah can work through that together with you.`,
 };
 
 // ─── METRICS ─────────────────────────────────────────────────────────────────
