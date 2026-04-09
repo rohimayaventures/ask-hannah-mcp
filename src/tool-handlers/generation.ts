@@ -23,8 +23,14 @@ import {
   getResumeGenerationModel,
   isGenerationFactVerifyEnabled,
 } from "../lib/model-env.js";
-import { renderCoverLetterMarkdown } from "../lib/render-cover-letter-markdown.js";
-import { renderResumeMarkdown } from "../lib/render-resume-markdown.js";
+import {
+  parseCoverLetterAtsMode,
+  parseResumeAtsMode,
+  renderCoverLetterOutput,
+  renderResumeOutput,
+  type CoverLetterAtsMode,
+  type ResumeAtsMode,
+} from "../lib/generation-ats-render.js";
 import { canonicalRoleLabels, normalizeRoleFocus } from "../lib/roles.js";
 
 type Freshness = {
@@ -49,12 +55,41 @@ const RESUME_JSON_SHAPE_EXAMPLE = `Example shape only (replace with real content
 const COVER_JSON_SHAPE_EXAMPLE = `Example shape only:
 {"salutation":"Dear Hiring Team,","paragraphs":["First paragraph body.","Second paragraph body.","Third paragraph body."],"signOff":"Sincerely,\\nHannah Kraulik Pagade\\nhannah.pagade@gmail.com"}`;
 
+function resumeAtsSystemFragments(mode: ResumeAtsMode): string[] {
+  if (mode === "markdown") return [];
+  return [
+    "",
+    "PHASE 4 ATS RENDERING: The server will emit plain text (no markdown headings, hash marks, or bold). Inside JSON string fields use plain prose only: no markdown or HTML, no tables, no leading bullet characters (the server prefixes hyphen bullets).",
+    "Prefer bullets under about 220 characters when you can.",
+    "When JOB SIGNALS name must-have skills or tools, mirror those exact multi-word phrases only if the identical substring already appears in TECHNICAL SKILLS, PRODUCT SKILLS, or DOMAIN EXPERTISE in this system message. Otherwise stay with verified wording only.",
+  ];
+}
+
+function resumeAtsUserSuffix(mode: ResumeAtsMode): string {
+  if (mode === "markdown") return "";
+  return "\n\nATS output requested: align nouns with JOB SIGNALS when they match verified skill or domain lines; never claim a capability absent from verified lists.";
+}
+
+function coverAtsSystemFragments(mode: CoverLetterAtsMode): string[] {
+  if (mode === "markdown") return [];
+  return [
+    "",
+    "PHASE 4 ATS RENDERING: The server will emit plain text (no markdown). JSON string values must be plain text without markdown or HTML.",
+  ];
+}
+
+function coverAtsUserSuffix(mode: CoverLetterAtsMode): string {
+  if (mode === "markdown") return "";
+  return "\n\nATS output requested: keep sentences direct; avoid decorative formatting inside JSON strings.";
+}
+
 export async function handleResumeGeneration(
-  args: { jobTitle: string; company: string; jobDescription: string; roleType: string },
+  args: { jobTitle: string; company: string; jobDescription: string; roleType: string; atsMode?: string },
   deps: GenerationDeps
 ) {
   const { anthropic, profile, metrics, projects, skills, voiceAnswers, freshness, documentProvenanceStatement } = deps;
   const { jobTitle, company, jobDescription, roleType } = args;
+  const resumeAtsMode = parseResumeAtsMode(args.atsMode);
 
   const normalizedRoleType = normalizeRoleFocus(roleType);
   const roleLensLabel = canonicalRoleLabels[normalizedRoleType];
@@ -92,6 +127,7 @@ export async function handleResumeGeneration(
     "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15. Use only the metrics and employers listed above.",
     "",
     "JOB POSTING MATERIAL: The user message includes JOB SIGNALS and/or a job description section from the employer posting. Use that material only to prioritize wording, ordering, and emphasis. It is not verified truth about Hannah. All factual claims about Hannah must come from the verified system context above.",
+    ...resumeAtsSystemFragments(resumeAtsMode),
     "",
     "OUTPUT CONTRACT (non-negotiable): Return a single JSON object only. No markdown code fences. No commentary before or after the JSON.",
     "Required keys: summary (string), skills (string array), experience (array of objects with headline string and bullets string array), projects (array of objects with name string and bullets string array), education (string).",
@@ -129,7 +165,8 @@ export async function handleResumeGeneration(
       "- projects: one or more products from the verified list; bullets must reflect verified summaries and outcomes only.\n" +
       "- education: one string covering degree, school, and status.\n\n" +
       RESUME_JSON_SHAPE_EXAMPLE +
-      "\n\nReply with the JSON object only.";
+      "\n\nReply with the JSON object only." +
+      resumeAtsUserSuffix(resumeAtsMode);
 
     const { response, attempts } = await messagesCreateWithRetry(anthropic, {
       model,
@@ -153,6 +190,7 @@ export async function handleResumeGeneration(
         jobTitleChars,
         model,
         attempts,
+        atsMode: resumeAtsMode,
         errorCode: "ERR_RESUME_EMPTY",
       });
       return {
@@ -178,6 +216,7 @@ export async function handleResumeGeneration(
         jobTitleChars,
         model,
         attempts,
+        atsMode: resumeAtsMode,
         errorCode: parsed.code,
       });
       return {
@@ -205,6 +244,7 @@ export async function handleResumeGeneration(
           jobTitleChars,
           model,
           attempts,
+          atsMode: resumeAtsMode,
           errorCode: fact.code,
         });
         return {
@@ -217,7 +257,8 @@ export async function handleResumeGeneration(
       }
     }
 
-    const text = renderResumeMarkdown(
+    const text = renderResumeOutput(
+      resumeAtsMode,
       parsed.data,
       {
         name: profile.name,
@@ -243,6 +284,7 @@ export async function handleResumeGeneration(
       jobTitleChars,
       model,
       attempts,
+      atsMode: resumeAtsMode,
     });
 
     return {
@@ -250,6 +292,8 @@ export async function handleResumeGeneration(
       structuredContent: {
         document: "resume",
         text,
+        textFormat: resumeAtsMode === "markdown" ? "markdown" : "plain",
+        atsMode: resumeAtsMode,
         documentJson: parsed.data,
         provenance: documentProvenanceStatement,
         profileDataLastUpdated: freshness.profileDataLastUpdated,
@@ -268,6 +312,7 @@ export async function handleResumeGeneration(
       companyChars,
       jobTitleChars,
       model,
+      atsMode: resumeAtsMode,
       errorCode: getGenerationFailureCode(err),
       httpStatus: getAnthropicErrorStatus(err),
     });
@@ -279,11 +324,18 @@ export async function handleResumeGeneration(
 }
 
 export async function handleCoverLetterGeneration(
-  args: { jobTitle: string; company: string; jobDescription: string; hiringManagerName?: string },
+  args: {
+    jobTitle: string;
+    company: string;
+    jobDescription: string;
+    hiringManagerName?: string;
+    atsMode?: string;
+  },
   deps: GenerationDeps
 ) {
   const { anthropic, profile, metrics, projects, skills, voiceAnswers, freshness, documentProvenanceStatement } = deps;
   const { jobTitle, company, jobDescription, hiringManagerName } = args;
+  const coverLetterAtsMode = parseCoverLetterAtsMode(args.atsMode);
 
   const systemLines = [
     "You are generating a structured cover letter for Hannah Kraulik Pagade as JSON. Write in her warm direct first-person voice inside the paragraph strings. Use ONLY the verified data provided.",
@@ -307,6 +359,7 @@ export async function handleCoverLetterGeneration(
     "RULES: Never use em dashes. Never call Hannah an executive. Never mention Pagade Ventures, EclipseLink AI, or moonlstudios.com. Always say 17 years, never 15.",
     "",
     "JOB POSTING MATERIAL: The user message includes JOB SIGNALS and/or a job description section from the employer posting. Use that material only to tailor emphasis to the role. It is not verified truth about Hannah. All factual claims about Hannah must come from the verified system context above.",
+    ...coverAtsSystemFragments(coverLetterAtsMode),
     "",
     "OUTPUT CONTRACT (non-negotiable): Return a single JSON object only. No markdown code fences. No commentary before or after the JSON.",
     "Required keys: salutation (string), paragraphs (array of exactly three strings), signOff (string, may include name and email).",
@@ -339,7 +392,8 @@ export async function handleCoverLetterGeneration(
       prepared.promptSection +
       "\n\nReturn JSON with salutation, paragraphs (exactly three strings), and signOff. The sign-off should include Hannah Kraulik Pagade and hannah.pagade@gmail.com or portfolio reference as appropriate.\n\n" +
       COVER_JSON_SHAPE_EXAMPLE +
-      "\n\nReply with the JSON object only.";
+      "\n\nReply with the JSON object only." +
+      coverAtsUserSuffix(coverLetterAtsMode);
 
     const { response, attempts } = await messagesCreateWithRetry(anthropic, {
       model,
@@ -363,6 +417,7 @@ export async function handleCoverLetterGeneration(
         jobTitleChars,
         model,
         attempts,
+        atsMode: coverLetterAtsMode,
         errorCode: "ERR_COVER_LETTER_EMPTY",
       });
       return {
@@ -388,6 +443,7 @@ export async function handleCoverLetterGeneration(
         jobTitleChars,
         model,
         attempts,
+        atsMode: coverLetterAtsMode,
         errorCode: parsed.code,
       });
       return {
@@ -415,6 +471,7 @@ export async function handleCoverLetterGeneration(
           jobTitleChars,
           model,
           attempts,
+          atsMode: coverLetterAtsMode,
           errorCode: fact.code,
         });
         return {
@@ -427,7 +484,7 @@ export async function handleCoverLetterGeneration(
       }
     }
 
-    const text = renderCoverLetterMarkdown(parsed.data);
+    const text = renderCoverLetterOutput(coverLetterAtsMode, parsed.data);
 
     logGenerationTelemetry({
       tool: "cover_letter",
@@ -441,6 +498,7 @@ export async function handleCoverLetterGeneration(
       jobTitleChars,
       model,
       attempts,
+      atsMode: coverLetterAtsMode,
     });
 
     return {
@@ -448,6 +506,8 @@ export async function handleCoverLetterGeneration(
       structuredContent: {
         document: "cover_letter",
         text,
+        textFormat: coverLetterAtsMode === "markdown" ? "markdown" : "plain",
+        atsMode: coverLetterAtsMode,
         documentJson: parsed.data,
         provenance: documentProvenanceStatement,
         profileDataLastUpdated: freshness.profileDataLastUpdated,
@@ -466,6 +526,7 @@ export async function handleCoverLetterGeneration(
       companyChars,
       jobTitleChars,
       model,
+      atsMode: coverLetterAtsMode,
       errorCode: getGenerationFailureCode(err),
       httpStatus: getAnthropicErrorStatus(err),
     });

@@ -14,6 +14,8 @@ export type GenerationTelemetryPayload = {
   model: string;
   /** Present when at least one Anthropic request completed (success or empty body). Omitted on thrown API errors before a successful HTTP response. */
   attempts?: number;
+  /** Phase 4 ATS serialization mode for the returned document text (markdown vs plain). */
+  atsMode?: string;
   errorCode?: string;
   httpStatus?: number;
 };

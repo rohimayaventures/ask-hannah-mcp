@@ -885,7 +885,7 @@ server.registerTool(
   "hannah_generate_resume",
   {
     title: "Generate a Tailored Resume for Hannah",
-    description: `Generates a tailored resume for Hannah Kraulik Pagade based on a specific job description. The main model returns **structured JSON** (summary, skills, experience sections, projects, education) which is validated with Zod, then rendered into deterministic Markdown. Verified **name, title, location, email, portfolio, LinkedIn, and GitHub** are prepended by the server from profile data, not by the model.
+    description: `Generates a tailored resume for Hannah Kraulik Pagade based on a specific job description. The main model returns **structured JSON** (summary, skills, experience sections, projects, education) which is validated with Zod, then rendered for display. Default **markdown** layout uses deterministic Markdown; **Phase 4** **atsMode** \`plain\` or \`plain_dense\` emits ATS-oriented plain text instead. Verified **name, title, location, email, portfolio, LinkedIn, and GitHub** are prepended by the server from profile data, not by the model.
 
 For longer postings, a prior **jd_extract** pass may summarize JOB SIGNALS (Phase 1). If the model returns invalid JSON or fails schema validation, the tool responds with ERR_RESUME_JSON or ERR_RESUME_SCHEMA. After valid JSON, a **Phase 3** server pass checks model-owned fields against allowed facts from **hannah-data** (forbidden references, wrong experience framing, and unverified dollar/percent-style claims); failures return ERR_RESUME_FACT_DRIFT.
 
@@ -895,7 +895,9 @@ Examples:
 - "Generate Hannah's resume for our Head of Product role"
 - "Show me her resume for a Founding PM at a fintech startup"
 
-When this tool returns output, display the full resume text directly to the user without any narration, summary, or commentary before or after the resume content. Optional structuredContent includes documentJson for the validated resume object.
+When this tool returns output, display the full resume text directly to the user without any narration, summary, or commentary before or after the resume content. Optional structuredContent includes documentJson for the validated resume object, plus **textFormat** (markdown vs plain) and **atsMode** (Phase 4).
+
+**Phase 4 ATS:** Set **atsMode** to \`plain\` for ATS-friendly plain text (no markdown headings or bold; simple section labels) or \`plain_dense\` for tighter line breaks. Default \`markdown\` keeps the prior human-readable layout.
 
 Provenance: Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.`,
     inputSchema: {
@@ -920,12 +922,18 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
         ])
         .default("general-ai")
         .describe("Role type to optimize framing for"),
+      atsMode: z
+        .enum(["markdown", "plain", "plain_dense"])
+        .default("markdown")
+        .describe(
+          "Phase 4: markdown (default) for readable layout; plain or plain_dense for ATS-oriented plain text without #/bold."
+        ),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
-  async ({ jobTitle, company, jobDescription, roleType }) =>
+  async ({ jobTitle, company, jobDescription, roleType, atsMode }) =>
     handleResumeGeneration(
-      { jobTitle, company, jobDescription, roleType },
+      { jobTitle, company, jobDescription, roleType, atsMode },
       { anthropic, profile, metrics, projects, skills, voiceAnswers, freshness, documentProvenanceStatement }
     )
 );
@@ -936,7 +944,7 @@ server.registerTool(
   "hannah_generate_cover_letter",
   {
     title: "Generate a Tailored Cover Letter for Hannah",
-    description: `Generates a tailored cover letter for Hannah Kraulik Pagade for a specific role and company. The model returns **JSON** with salutation, exactly three paragraph strings, and signOff; the server validates with Zod and renders deterministic Markdown. Uses only verified profile data in the model prompt.
+    description: `Generates a tailored cover letter for Hannah Kraulik Pagade for a specific role and company. The model returns **JSON** with salutation, exactly three paragraph strings, and signOff; the server validates with Zod and renders output. Default **markdown** uses blank-line paragraph spacing; **Phase 4** **atsMode** \`plain\` or \`plain_dense\` emits plain text with tighter spacing. Uses only verified profile data in the model prompt.
 
 Longer job descriptions may use the same optional JOB SIGNALS extraction as the resume tool. Invalid JSON or schema issues return ERR_COVER_LETTER_JSON or ERR_COVER_LETTER_SCHEMA. The same Phase 3 fact verification as the resume tool may return ERR_COVER_LETTER_FACT_DRIFT if the letter invents metrics or hits forbidden references.
 
@@ -944,7 +952,7 @@ Examples:
 - "Write Hannah's cover letter for your Head of Product opening"
 - "Generate a cover letter for a Founding PM role at a healthtech startup"
 
-When this tool returns output, display the full cover letter text directly to the user without any narration, summary, or commentary before or after the letter content. Optional structuredContent includes documentJson for the validated letter object.
+When this tool returns output, display the full cover letter text directly to the user without any narration, summary, or commentary before or after the letter content. Optional structuredContent includes documentJson for the validated letter object, plus **textFormat** and **atsMode** (Phase 4). Use **atsMode** \`plain\` or \`plain_dense\` for ATS-friendly plain text without extra blank lines (dense).
 
 Provenance: Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.`,
     inputSchema: {
@@ -952,12 +960,16 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
       company: z.string().min(1).max(100).describe("The company name"),
       jobDescription: z.string().min(50).max(4000).describe("The job description"),
       hiringManagerName: z.string().optional().describe("Hiring manager name if known"),
+      atsMode: z
+        .enum(["markdown", "plain", "plain_dense"])
+        .default("markdown")
+        .describe("Phase 4: markdown default; plain or plain_dense for ATS-oriented plain text."),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
-  async ({ jobTitle, company, jobDescription, hiringManagerName }) =>
+  async ({ jobTitle, company, jobDescription, hiringManagerName, atsMode }) =>
     handleCoverLetterGeneration(
-      { jobTitle, company, jobDescription, hiringManagerName },
+      { jobTitle, company, jobDescription, hiringManagerName, atsMode },
       { anthropic, profile, metrics, projects, skills, voiceAnswers, freshness, documentProvenanceStatement }
     )
 );
