@@ -65,7 +65,7 @@ export function applyCalendlyEventType(url: string, eventType: string, source: s
 }
 
 export function createContactOptions(profileDefaults: ProfileContactDefaults): ContactOptions {
-  const contactTrackingSource = process.env.CALENDLY_UTM_SOURCE ?? "ask-hannah-mcp";
+  const contactTrackingSource = process.env.CONTACT_UTM_SOURCE ?? process.env.CALENDLY_UTM_SOURCE ?? "ask-hannah-mcp";
   const contactTimezone = process.env.CONTACT_TIMEZONE ?? "America/Denver";
   const bookingCtaLabel = process.env.BOOKING_CTA_LABEL ?? "Book a discovery call";
   const calendlyEventType = process.env.CALENDLY_EVENT_TYPE ?? "";
@@ -73,11 +73,14 @@ export function createContactOptions(profileDefaults: ProfileContactDefaults): C
   let calendlyUrl = addUtmSource(process.env.CALENDLY_URL ?? "", contactTrackingSource);
   calendlyUrl = applyCalendlyEventType(calendlyUrl, calendlyEventType, contactTrackingSource);
 
+  const zoomBookingUrl = addUtmSource(process.env.ZOOM_BOOKING_URL ?? "", contactTrackingSource);
+  const linkedinUrl = addUtmSource(process.env.LINKEDIN_URL ?? profileDefaults.linkedin, contactTrackingSource);
+
   return {
     email: process.env.CONTACT_EMAIL ?? profileDefaults.email,
     calendlyUrl,
-    zoomBookingUrl: process.env.ZOOM_BOOKING_URL ?? "",
-    linkedinUrl: process.env.LINKEDIN_URL ?? profileDefaults.linkedin,
+    zoomBookingUrl,
+    linkedinUrl,
     preferredContactMethod: process.env.PREFERRED_CONTACT_METHOD ?? "calendly",
     responseTimeHours: parseInt(process.env.CONTACT_RESPONSE_TIME_HOURS ?? "24", 10),
     timezone: contactTimezone,

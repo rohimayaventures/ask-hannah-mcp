@@ -676,10 +676,39 @@ Focus options support recruiter shorthand and conversational AI aliases:
       "general-ai": "AI product fit call",
     };
 
-    const bookingUrl = contactOptions.calendlyUrl || contactOptions.zoomBookingUrl;
-    const bookingInstruction = bookingUrl
-      ? `${contactOptions.bookingCtaLabel} (${roleSpecificCallByFocus[normalizedFocus]}): ${bookingUrl}`
-      : `Email ${contactOptions.email} with the role title and job description`;
+    const roleCallVariant = roleSpecificCallByFocus[normalizedFocus];
+    const contactFallbackOrder = [
+      {
+        method: "calendly",
+        label: `${contactOptions.bookingCtaLabel} (${roleCallVariant})`,
+        value: contactOptions.calendlyUrl,
+      },
+      {
+        method: "linkedin",
+        label: "Connect on LinkedIn",
+        value: contactOptions.linkedinUrl,
+      },
+      {
+        method: "email",
+        label: "Email",
+        value: contactOptions.email,
+      },
+    ].filter((x) => Boolean(x.value));
+    const preferredContactPath = contactFallbackOrder[0];
+    const bookingInstruction =
+      !preferredContactPath
+        ? `Email ${contactOptions.email} with the role title and job description`
+        : preferredContactPath.method === "email"
+          ? `${preferredContactPath.label}: ${preferredContactPath.value} with the role title and job description`
+          : `${preferredContactPath.label}: ${preferredContactPath.value}`;
+    const decisionRecommendationByFocus: Record<CanonicalRoleFocus, string> = {
+      "founding-pm": "Recommendation: Advance to founder/product leadership interview focused on 0-to-1 execution depth.",
+      "head-of-product": "Recommendation: Advance to leadership-round discussion on operating cadence and portfolio strategy.",
+      "ai-pm": "Recommendation: Advance to AI PM interview with emphasis on trust, evaluation, and delivery discipline.",
+      "ux-ai": "Recommendation: Advance to conversational AI UX interview focused on escalation and failure-mode design.",
+      "healthcare-ai": "Recommendation: Advance to healthcare AI interview focused on safety, compliance, and escalation judgment.",
+      "general-ai": "Recommendation: Advance to product interview focused on cross-functional AI execution and measurable outcomes.",
+    };
 
     const data = {
       candidateSnapshot:
@@ -721,6 +750,8 @@ Focus options support recruiter shorthand and conversational AI aliases:
       anonymizationNotice,
       nextStepCTA:
         `Best next step: ${bookingInstruction}. You can also connect on LinkedIn at ${contactOptions.linkedinUrl}. Expected response time is within ${contactOptions.responseTimeHours} hours.`,
+      decisionRecommendation: decisionRecommendationByFocus[normalizedFocus],
+      contactFallbackOrder,
     };
 
     if (format === "json") {
@@ -741,6 +772,7 @@ Focus options support recruiter shorthand and conversational AI aliases:
 - Availability: ${data.availability}
 - Location: ${data.location} (Relocation: ${data.relocation.openToRelocation ? "Yes" : "No"})
 - Why now: ${data.whyNowTransition}
+- ${data.decisionRecommendation}
 - Next step: ${data.nextStepCTA}`;
       return { content: [{ type: "text", text: summary }], structuredContent: data };
     }
@@ -834,7 +866,13 @@ ${data.proofSourcePointers.map((x) => `- Claim: ${x.claim}\n  Source: ${x.source
 - Email: ${data.contactOptions.email}
 
 ## Recommended Next Step
-${data.nextStepCTA}`;
+${data.nextStepCTA}
+
+## Decision Recommendation
+${data.decisionRecommendation}
+
+## Contact Fallback Order
+${data.contactFallbackOrder.map((x) => `- ${x.method}: ${x.value}`).join("\n")}`;
 
     return { content: [{ type: "text", text: md }], structuredContent: data };
   }

@@ -71,6 +71,24 @@ This file shows representative JSON structures for key tools so future changes c
       "sourceType": "product_metric",
       "reference": "Example reference"
     }
+  ],
+  "decisionRecommendation": "Recommendation: Advance to AI PM interview with emphasis on trust, evaluation, and delivery discipline.",
+  "contactFallbackOrder": [
+    {
+      "method": "calendly",
+      "label": "Book a discovery call (AI product manager fit call)",
+      "value": "https://calendly.com/your-handle/20min-intro?utm_source=ask-hannah-mcp"
+    },
+    {
+      "method": "linkedin",
+      "label": "Connect on LinkedIn",
+      "value": "https://www.linkedin.com/in/your-profile?utm_source=ask-hannah-mcp"
+    },
+    {
+      "method": "email",
+      "label": "Email",
+      "value": "your.email@example.com"
+    }
   ]
 }
 ```

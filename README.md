@@ -102,10 +102,12 @@ Concrete example (tool arguments):
 
 - Role-focused hiring briefs support both concise decision mode (`summary`) and deep-dive mode (why now, scorecards, 30/60/90, risks/mitigations, interview prompts).
 - Hiring briefs now include `scoreRationale`, compact founder-concern coverage in `summary`, proof-source pointers, and optional role-specific 90-day KPI targets.
+- Conversion-oriented hiring summaries include a decision recommendation line and explicit contact fallback order.
 - Metrics JSON includes trust metadata (`evidenceTag` and `confidenceNote`) to speed up screening confidence.
 - Resume and cover-letter tools are constrained to verified source data and return standardized error codes with actionable next steps.
 - Freshness metadata is included in outputs and controlled by environment variables.
 - Direct contact conversion supports email, Calendly, optional Zoom booking, LinkedIn, preferred contact method, response-time SLA, timezone, and optional UTM/event suffix controls.
+- Contact order for recruiter follow-up is explicit: Calendly -> LinkedIn -> Email.
 - Code is modularized for maintainability: role/focus normalization, contact/freshness helpers, and tool handlers are separated under `src/lib` and `src/tool-handlers`.
 - Test coverage exists for role normalization, Calendly URL handling, and metric evidence tagging via `npm test`.
 - Sample tool JSON payloads are documented in `docs/sample-json-outputs.md`.
@@ -121,6 +123,7 @@ Set these in Railway Variables to enable direct recruiter contact conversion:
 - `PREFERRED_CONTACT_METHOD` (for example `calendly` or `email`)
 - `CONTACT_RESPONSE_TIME_HOURS` (for example `24`)
 - `CALENDLY_UTM_SOURCE` (for source tracking, for example `ask-hannah-mcp`)
+- `CONTACT_UTM_SOURCE` (recommended global source tracking for Calendly, LinkedIn, and Zoom links)
 - `CONTACT_TIMEZONE` (for example `America/Denver`)
 - `BOOKING_CTA_LABEL` (for example `Book a discovery call`)
 - `CALENDLY_EVENT_TYPE` (optional path suffix for event-specific booking links)
@@ -129,6 +132,10 @@ Calendly URL rule:
 
 - If `CALENDLY_URL` is already a full event link, leave `CALENDLY_EVENT_TYPE` empty.
 - If `CALENDLY_URL` is only your Calendly handle/root URL, set `CALENDLY_EVENT_TYPE` to the event slug.
+
+Contact fallback order:
+
+- Hiring outputs prioritize follow-up in this order: `Calendly -> LinkedIn -> Email`.
 
 ## Environment Variables (Source of Truth)
 
