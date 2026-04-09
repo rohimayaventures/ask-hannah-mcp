@@ -88,6 +88,32 @@ Concrete example (tool arguments):
 3. Review top quantified outcomes and role-specific strengths.
 4. Generate a tailored resume or cover letter only if needed.
 
+## Troubleshooting
+
+- If generated outputs are summarized by the host model instead of shown directly, prompt: "Paste the tool output only with no extra commentary."
+- If connector setup fails, verify your connector URL ends with `/mcp` and test `https://your-url/health` first.
+- If resume/cover-letter generation fails, verify `ANTHROPIC_API_KEY` is set and valid in Railway Variables.
+- If generation returns empty output, retry with a shorter, cleaner job description (remove long pasted boilerplate).
+- For metric trust details, request JSON output from `hannah_get_metrics`; each metric includes an `evidenceTag`.
+
+## Roadmap (Next Phases)
+
+### Phase 3 — Founder-Depth Narrative
+
+- Add a role-specific 30/60/90-day plan section for `founding-pm` and `head-of-product`.
+- Add "hard questions I welcome" so interviewers can quickly pressure-test fit.
+- Add a risk-and-mitigation section to address common founder concerns directly.
+- Add role scorecards (`speed_to_value`, `execution_depth`, `cross_functional_leadership`, `ai_safety_maturity`).
+- Add a concise "why now" transition line to sharpen narrative clarity.
+
+### Phase 4 — Direct Contact Conversion
+
+- Add `contactOptions` (email, Calendly, optional Zoom booking) as structured output fields.
+- Surface booking/contact options in both `hannah_get_hiring_brief` and `hannah_get_profile`.
+- Add role-specific call booking CTA copy (for example, conversational AI PM fit call).
+- Add optional UTM tracking on contact links for source analytics.
+- Add response-time expectation and preferred contact method to reduce outreach friction.
+
 ## Local Development
 
 ```bash

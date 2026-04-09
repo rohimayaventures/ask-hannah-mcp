@@ -58,15 +58,53 @@ function normalizeRoleFocus(input: string): CanonicalRoleFocus {
   return "general-ai";
 }
 
-function metricEvidenceTag(metric: string, context: string): "operational_outcome" | "research_validated" | "live_product_observed" {
+function metricEvidenceTag(
+  metric: string,
+  context: string
+): "operational_leadership" | "usability_research" | "clinical_validation" | "commercial_signal" | "research_validated" | "live_product_observed" {
   const haystack = `${metric} ${context}`.toLowerCase();
-  if (haystack.includes("validation") || haystack.includes("study") || haystack.includes("interview") || haystack.includes("scenario")) {
+  if (haystack.includes("clinical validation") || haystack.includes("clinical workup")) {
+    return "clinical_validation";
+  }
+  if (
+    haystack.includes("cost savings") ||
+    haystack.includes("satisfaction improved") ||
+    haystack.includes("audit success") ||
+    haystack.includes("people led") ||
+    haystack.includes("operational")
+  ) {
+    return "operational_leadership";
+  }
+  if (haystack.includes("interview") || haystack.includes("usability") || haystack.includes("sus")) {
+    return "usability_research";
+  }
+  if (haystack.includes("pilot") || haystack.includes("monetized") || haystack.includes("conversion")) {
+    return "commercial_signal";
+  }
+  if (haystack.includes("validation") || haystack.includes("study") || haystack.includes("scenario")) {
     return "research_validated";
   }
   if (haystack.includes("live") || haystack.includes("pilot") || haystack.includes("shipped")) {
     return "live_product_observed";
   }
-  return "operational_outcome";
+  return "research_validated";
+}
+
+function metricConfidenceNote(evidenceTag: string): string {
+  switch (evidenceTag) {
+    case "clinical_validation":
+      return "Validated against a real clinical scenario outcome.";
+    case "commercial_signal":
+      return "Indicates market or buyer response in a real-world setting.";
+    case "usability_research":
+      return "Derived from structured research or testing activity.";
+    case "operational_leadership":
+      return "Measured outcome tied to leadership and operational execution.";
+    case "live_product_observed":
+      return "Observed in a live product context.";
+    default:
+      return "Evidence-backed outcome from documented project or operations context.";
+  }
 }
 
 function extractAnthropicText(content: Anthropic.Message["content"]): string {
@@ -77,6 +115,18 @@ function extractAnthropicText(content: Anthropic.Message["content"]): string {
     }
   }
   return parts.join("\n").trim();
+}
+
+function buildGenerationError(kind: "resume" | "cover_letter", err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  let code = "ERR_GENERATION_FAILED";
+  if (message.toLowerCase().includes("authentication") || message.includes("401")) code = "ERR_ANTHROPIC_AUTH";
+  else if (message.toLowerCase().includes("rate") || message.includes("429")) code = "ERR_ANTHROPIC_RATE_LIMIT";
+  else if (message.toLowerCase().includes("timeout")) code = "ERR_ANTHROPIC_TIMEOUT";
+  const hint =
+    "Check ANTHROPIC_API_KEY, confirm model availability, and retry with a shorter job description (3-6 key requirements).";
+  const label = kind === "resume" ? "Resume" : "Cover letter";
+  return `[${code}] ${label} generation failed: ${message}. ${hint}`;
 }
 
 // ── Tool 1: hannah_get_profile ───────────────────────────────────────────────
@@ -305,10 +355,12 @@ Examples:
       const operations = opsMetrics.map((m) => ({
         ...m,
         evidenceTag: metricEvidenceTag(m.metric, m.context),
+        confidenceNote: metricConfidenceNote(metricEvidenceTag(m.metric, m.context)),
       }));
       const product = prodMetrics.map((m) => ({
         ...m,
         evidenceTag: metricEvidenceTag(m.metric, m.context),
+        confidenceNote: metricConfidenceNote(metricEvidenceTag(m.metric, m.context)),
       }));
       const data = { operations, product, anonymizationNotice };
       return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data };
@@ -750,7 +802,10 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
       if (!text) {
         return {
           isError: true,
-          content: [{ type: "text", text: "Resume generation returned empty output. Set ANTHROPIC_API_KEY and try again." }],
+          content: [{
+            type: "text",
+            text: "[ERR_RESUME_EMPTY] Resume generation returned empty output. Check ANTHROPIC_API_KEY and retry with a shorter, cleaner job description (3-6 key requirements).",
+          }],
         };
       }
 
@@ -765,10 +820,9 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
         },
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
       return {
         isError: true,
-        content: [{ type: "text", text: "Resume generation failed: " + message }],
+        content: [{ type: "text", text: buildGenerationError("resume", err) }],
       };
     }
   }
@@ -852,7 +906,10 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
       if (!text) {
         return {
           isError: true,
-          content: [{ type: "text", text: "Cover letter generation returned empty output. Set ANTHROPIC_API_KEY and try again." }],
+          content: [{
+            type: "text",
+            text: "[ERR_COVER_LETTER_EMPTY] Cover letter generation returned empty output. Check ANTHROPIC_API_KEY and retry with a shorter, cleaner job description (3-6 key requirements).",
+          }],
         };
       }
 
@@ -867,10 +924,9 @@ Provenance: Generated from verified profile and project data in this MCP. No fab
         },
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
       return {
         isError: true,
-        content: [{ type: "text", text: "Cover letter generation failed: " + message }],
+        content: [{ type: "text", text: buildGenerationError("cover_letter", err) }],
       };
     }
   }
