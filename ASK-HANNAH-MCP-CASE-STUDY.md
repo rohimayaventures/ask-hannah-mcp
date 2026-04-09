@@ -143,8 +143,8 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | `hannah_get_voice` | First-person positioning statements in Hannah's voice, organized by question type |
 | `hannah_answer_question` | Pre-written answers to common recruiter and hiring-manager topics from structured FAQ data, selected by topic enum |
 | `hannah_get_hiring_brief` | Recruiter-optimized brief: role focus, proof points, interview prompts, optional summary mode, score rationale, proof-source pointers, 90-day KPI targets, decision recommendation, explicit contact fallback order |
-| `hannah_generate_resume` | Tailored resume as **Zod-validated JSON** from the model, then **deterministic Markdown**; verified name and contact lines come from profile data, not the model; long postings may use Phase 1 JOB SIGNALS extraction; `structuredContent.documentJson` on success |
-| `hannah_generate_cover_letter` | Tailored cover letter as validated JSON (salutation, three paragraphs, signOff) then deterministic Markdown; same optional JD extraction pipeline; `documentJson` on success |
+| `hannah_generate_resume` | Tailored resume as **Zod-validated JSON** from the model, then **Phase 3** fact verification on model-owned fields against **hannah-data**, then **deterministic Markdown**; verified name and contact lines come from profile data, not the model; long postings may use Phase 1 JOB SIGNALS extraction; `structuredContent.documentJson` on success; `ERR_RESUME_FACT_DRIFT` when verification fails |
+| `hannah_generate_cover_letter` | Same pipeline: validated JSON, Phase 3 verification, deterministic Markdown; optional JD extraction; `documentJson` on success; `ERR_COVER_LETTER_FACT_DRIFT` when verification fails |
 
 ### Infrastructure
 
@@ -157,14 +157,15 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 - Resume and cover letter generation: Anthropic model IDs configurable via environment (per tool or shared fallback), automatic retries with exponential backoff on transient API errors, structured one-line JSON logs on stderr per generation call (durations and string lengths only, never job description body text), optional per-IP sliding-window rate limit on `POST /mcp`, and `trust proxy` enabled by default for correct client IP behind Railway
 - Phase 1 job description pipeline: for postings over a configurable length threshold, a dedicated extractor model emits Zod-validated JSON (role summary, must-haves, skills, constraints, tailoring notes) that is rendered into a compact JOB SIGNALS block for the main generator; failures fall back to a deterministic excerpt. Separate `jd_extract` telemetry lines record extract timing and sizes without logging posting text
 - Phase 2 structured documents: main resume and cover letter calls return **JSON only**, validated with Zod (`generation-schemas`), then rendered to stable Markdown (`render-resume-markdown`, `render-cover-letter-markdown`). Resume header and contact lines are server-owned from `hannah-data`. Schema or JSON failures surface as `ERR_*_JSON` / `ERR_*_SCHEMA` without logging posting bodies; success payloads may include `documentJson` for downstream consumers
+- Phase 3 fact verification: after Zod passes, model-owned resume and cover letter strings are scanned against a normalized corpus from profile, metrics, projects, skills, and voice data. Disallowed references, incorrect 15-year experience framing, and common quantitative patterns (currency, two- and three-digit percentages, scaled suffix numbers, and a small set of verified phrases such as people-led and ninety-day ship claims) must appear in that corpus or the tool returns `ERR_RESUME_FACT_DRIFT` / `ERR_COVER_LETTER_FACT_DRIFT` with privacy-safe `generation` telemetry. Checks can be disabled in production only via `GENERATION_FACT_VERIFY_ENABLED=0`
 
 ### Generation hardening roadmap
 
 - **Phase 0 (shipped):** Operational controls for generation and the MCP HTTP surface: model env vars, retries, stderr telemetry, optional `/mcp` rate limit, proxy-aware client IP.
 - **Phase 1 (shipped):** Job description extraction JSON pass with schema validation, excerpt fallback, dual telemetry streams (`jd_extract` and enriched `generation`), and explicit system-prompt separation between posting-derived signals and verified candidate facts.
 - **Phase 2 (shipped):** Structured resume and cover letter schemas, parse/validate layer, deterministic Markdown rendering, profile-sourced resume header, optional `documentJson` in tool responses, configurable max output tokens and PDF CTA line via environment.
-- **Phase 3 (next):** Verification pass against allowed facts to catch metric or employer drift before returning documents.
-- **Phases 4–5:** ATS-oriented modes and optional export or handoff to the portfolio resume builder. The repository README tracks the full sequence as each phase lands.
+- **Phase 3 (shipped):** Server-side verification pass against allowed facts (`generation-fact-verify`) before Markdown render; standardized `ERR_*_FACT_DRIFT` codes and optional env kill switch.
+- **Phases 4–5 (next):** ATS-oriented modes and optional export or handoff to the portfolio resume builder. The repository README tracks the full sequence as each phase lands.
 
 ---
 
@@ -178,7 +179,7 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | Data layer | `hannah-data.ts` (compile-time) | Stateless by design; no database needed for read-only professional data |
 | Code organization | `src/lib`, `src/tool-handlers` | Shared helpers and tool handlers separated from the server entrypoint for safer iteration |
 | Input validation | Zod | Schema enforcement on all tool inputs before handler execution |
-| AI generation | Anthropic Messages API (models via env; Sonnet-class defaults for documents, Haiku-class default for JD JSON extract) | Resume and cover letter: validated **document JSON** then server-side Markdown; optional JOB SIGNALS pre-pass; profile-owned resume header; `documentJson` on success; schema and JSON error codes; retries; `jd_extract` + `generation` telemetry (no posting body in logs) |
+| AI generation | Anthropic Messages API (models via env; Sonnet-class defaults for documents, Haiku-class default for JD JSON extract) | Resume and cover letter: validated **document JSON**, **Phase 3** corpus-backed fact checks on model-owned text, then server-side Markdown; optional JOB SIGNALS pre-pass; profile-owned resume header; `documentJson` on success; schema, JSON, and fact-drift error codes; retries; `jd_extract` + `generation` telemetry (no posting body in logs) |
 | Deployment | Railway | Auto-deploy on push; free tier sufficient for a low-traffic professional tool; public URL with HTTPS |
 | MCP framework | @modelcontextprotocol/sdk | Official SDK; most compatible with evolving Claude.ai connector spec |
 
@@ -191,8 +192,8 @@ The lesson: a portfolio MCP is still a product surface. If the next step is fuzz
 | All 10 tools responding | Working | Verified via `/health` endpoint and live Claude.ai connector testing |
 | HTTP streamable MCP transport | Working | Registered and confirmed in Claude.ai connectors |
 | Railway deployment | Working | Auto-deploys on push to main; Online status confirmed |
-| Resume generation | Working | Model returns JSON validated with Zod; Markdown rendered deterministically; contact block from profile; long JDs may use JOB SIGNALS extraction first; schema failures return ERR_RESUME_JSON / ERR_RESUME_SCHEMA |
-| Cover letter generation | Working | JSON with three paragraphs validated and rendered; same JD pipeline as resume; ERR_COVER_LETTER_JSON / ERR_COVER_LETTER_SCHEMA on failure |
+| Resume generation | Working | Model returns JSON validated with Zod; Phase 3 fact verification; Markdown rendered deterministically; contact block from profile; long JDs may use JOB SIGNALS extraction first; failures return ERR_RESUME_JSON / ERR_RESUME_SCHEMA / ERR_RESUME_FACT_DRIFT |
+| Cover letter generation | Working | JSON with three paragraphs validated; Phase 3 verification; same JD pipeline as resume; ERR_COVER_LETTER_JSON / ERR_COVER_LETTER_SCHEMA / ERR_COVER_LETTER_FACT_DRIFT on failure |
 | Hiring brief (including summary mode) | Working | Role focus, proof pointers, decision line, contact fallback order |
 | Voice tool first-person consistency | Working | Verified in live connector testing |
 | Metrics trust metadata | Working | JSON includes `evidenceTag` and `confidenceNote` |
@@ -238,7 +239,7 @@ Any hiring manager with a Claude.ai account can connect this server right now an
 ### Honest summary
 
 **Technical understanding:**
-Understands MCP transport architecture well enough to identify and fix the stdio versus public HTTP mismatch that blocked registration. Applied strict generation contracts and standardized error handling to resume and cover letter tools. Phase 0 generation operations add env-configurable models, bounded retries on transient API failures, privacy-safe stderr telemetry (lengths and timings, not job description text), and an optional `/mcp` rate limit behind Railway-friendly proxy trust settings. Phase 1 adds a validated JSON extraction pass for long job descriptions so the main generator sees compact JOB SIGNALS instead of raw posting walls, with excerpt fallback and separate `jd_extract` logs. Phase 2 makes resume and cover letter outputs **machine-validated JSON first**, then **deterministic Markdown**, with the resume header and contact lines owned by the server from `hannah-data` so the model cannot rewrite identity fields. Refactored into modules with tests so changes do not regress silently. Stateless by design was a conscious tradeoff, not a gap.
+Understands MCP transport architecture well enough to identify and fix the stdio versus public HTTP mismatch that blocked registration. Applied strict generation contracts and standardized error handling to resume and cover letter tools. Phase 0 generation operations add env-configurable models, bounded retries on transient API failures, privacy-safe stderr telemetry (lengths and timings, not job description text), and an optional `/mcp` rate limit behind Railway-friendly proxy trust settings. Phase 1 adds a validated JSON extraction pass for long job descriptions so the main generator sees compact JOB SIGNALS instead of raw posting walls, with excerpt fallback and separate `jd_extract` logs. Phase 2 makes resume and cover letter outputs **machine-validated JSON first**, then **deterministic Markdown**, with the resume header and contact lines owned by the server from `hannah-data` so the model cannot rewrite identity fields. Phase 3 adds a **deterministic verification layer** on model-owned prose and bullets so invented dollar amounts, percentages, banned references, and the wrong experience-year framing fail closed before the user sees Markdown. Refactored into modules with tests so changes do not regress silently. Stateless by design was a conscious tradeoff, not a gap.
 
 **Product understanding:**
 Scoped out a fit-scoring tool that would have been technically interesting but created product liability in a job search context. Made the voice tool distinct from the profile tool because the downstream synthesis use case for each is different. Added a hiring brief and conversion path so screening does not dead-end after reading. Designed for a specific user journey: hiring manager opens Claude, connects the server, asks questions, gets grounded answers, moves to outreach.
@@ -252,7 +253,7 @@ Hannah built a live MCP server, deployed it to production, registered it as a Cl
 
 ### One honest line for technical interviews
 
-Ten MCP tools over HTTP with Zod input validation, strict generation contracts, streamable MCP transport, modular handlers, automated tests, stateless Railway deployment, generation ops defaults (configurable models, retries, structured logs without JD content, optional rate limit), a two-step JD extraction pipeline with schema validation for long postings, Zod-validated resume and cover letter document JSON with deterministic rendering and profile-owned resume headers, and a TypeScript data module that is the single source of truth for professional content.
+Ten MCP tools over HTTP with Zod input validation, strict generation contracts, streamable MCP transport, modular handlers, automated tests, stateless Railway deployment, generation ops defaults (configurable models, retries, structured logs without JD content, optional rate limit), a two-step JD extraction pipeline with schema validation for long postings, Zod-validated resume and cover letter document JSON with **Phase 3** corpus-backed fact verification, deterministic rendering and profile-owned resume headers, and a TypeScript data module that is the single source of truth for professional content.
 
 ### One honest line for product interviews
 

@@ -31,3 +31,10 @@ export function getResumeGenerationMaxTokens(): number {
 export function getCoverLetterGenerationMaxTokens(): number {
   return Math.min(8192, Math.max(1024, parseInt(process.env.COVER_LETTER_GENERATION_MAX_TOKENS ?? "3072", 10)));
 }
+
+/** Phase 3 fact verification against source data. Set to 0/false/off/no to disable (emergency only). */
+export function isGenerationFactVerifyEnabled(): boolean {
+  const v = process.env.GENERATION_FACT_VERIFY_ENABLED?.trim().toLowerCase();
+  if (v === "0" || v === "false" || v === "off" || v === "no") return false;
+  return true;
+}

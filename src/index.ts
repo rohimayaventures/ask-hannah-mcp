@@ -887,7 +887,7 @@ server.registerTool(
     title: "Generate a Tailored Resume for Hannah",
     description: `Generates a tailored resume for Hannah Kraulik Pagade based on a specific job description. The main model returns **structured JSON** (summary, skills, experience sections, projects, education) which is validated with Zod, then rendered into deterministic Markdown. Verified **name, title, location, email, portfolio, LinkedIn, and GitHub** are prepended by the server from profile data, not by the model.
 
-For longer postings, a prior **jd_extract** pass may summarize JOB SIGNALS (Phase 1). If the model returns invalid JSON or fails schema validation, the tool responds with ERR_RESUME_JSON or ERR_RESUME_SCHEMA.
+For longer postings, a prior **jd_extract** pass may summarize JOB SIGNALS (Phase 1). If the model returns invalid JSON or fails schema validation, the tool responds with ERR_RESUME_JSON or ERR_RESUME_SCHEMA. After valid JSON, a **Phase 3** server pass checks model-owned fields against allowed facts from **hannah-data** (forbidden references, wrong experience framing, and unverified dollar/percent-style claims); failures return ERR_RESUME_FACT_DRIFT.
 
 Use when a recruiter wants Hannah's resume tailored to their specific role.
 
@@ -938,7 +938,7 @@ server.registerTool(
     title: "Generate a Tailored Cover Letter for Hannah",
     description: `Generates a tailored cover letter for Hannah Kraulik Pagade for a specific role and company. The model returns **JSON** with salutation, exactly three paragraph strings, and signOff; the server validates with Zod and renders deterministic Markdown. Uses only verified profile data in the model prompt.
 
-Longer job descriptions may use the same optional JOB SIGNALS extraction as the resume tool. Invalid JSON or schema issues return ERR_COVER_LETTER_JSON or ERR_COVER_LETTER_SCHEMA.
+Longer job descriptions may use the same optional JOB SIGNALS extraction as the resume tool. Invalid JSON or schema issues return ERR_COVER_LETTER_JSON or ERR_COVER_LETTER_SCHEMA. The same Phase 3 fact verification as the resume tool may return ERR_COVER_LETTER_FACT_DRIFT if the letter invents metrics or hits forbidden references.
 
 Examples:
 - "Write Hannah's cover letter for your Head of Product opening"

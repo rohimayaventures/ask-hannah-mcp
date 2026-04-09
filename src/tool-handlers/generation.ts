@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { messagesCreateWithRetry, getAnthropicErrorStatus } from "../lib/anthropic-retry.js";
 import {
+  buildVerifiedFactCorpus,
+  verifyCoverLetterDocumentFacts,
+  verifyResumeDocumentFacts,
+} from "../lib/generation-fact-verify.js";
+import {
   parseCoverLetterDocumentFromModelText,
   parseResumeDocumentFromModelText,
 } from "../lib/generation-document-parse.js";
@@ -16,6 +21,7 @@ import {
   getCoverLetterGenerationModel,
   getResumeGenerationMaxTokens,
   getResumeGenerationModel,
+  isGenerationFactVerifyEnabled,
 } from "../lib/model-env.js";
 import { renderCoverLetterMarkdown } from "../lib/render-cover-letter-markdown.js";
 import { renderResumeMarkdown } from "../lib/render-resume-markdown.js";
@@ -47,7 +53,7 @@ export async function handleResumeGeneration(
   args: { jobTitle: string; company: string; jobDescription: string; roleType: string },
   deps: GenerationDeps
 ) {
-  const { anthropic, profile, metrics, projects, skills, freshness, documentProvenanceStatement } = deps;
+  const { anthropic, profile, metrics, projects, skills, voiceAnswers, freshness, documentProvenanceStatement } = deps;
   const { jobTitle, company, jobDescription, roleType } = args;
 
   const normalizedRoleType = normalizeRoleFocus(roleType);
@@ -183,6 +189,34 @@ export async function handleResumeGeneration(
       };
     }
 
+    if (isGenerationFactVerifyEnabled()) {
+      const corpusNorm = buildVerifiedFactCorpus({ profile, metrics, projects, skills, voiceAnswers });
+      const fact = verifyResumeDocumentFacts(parsed.data, corpusNorm);
+      if (!fact.ok) {
+        logGenerationTelemetry({
+          tool: "resume",
+          ok: false,
+          durationMs: Date.now() - started,
+          jdChars,
+          jdPromptChars: jdTelemetry.jdPromptChars,
+          jdExtractUsed: jdTelemetry.jdExtractUsed,
+          jdExtractOk: jdTelemetry.jdExtractOk,
+          companyChars,
+          jobTitleChars,
+          model,
+          attempts,
+          errorCode: fact.code,
+        });
+        return {
+          isError: true,
+          content: [{
+            type: "text" as const,
+            text: `[${fact.code}] ${fact.hint} Retry once; if it persists, shorten the job description or set GENERATION_FACT_VERIFY_ENABLED=0 only as a temporary escape hatch.`,
+          }],
+        };
+      }
+    }
+
     const text = renderResumeMarkdown(
       parsed.data,
       {
@@ -248,7 +282,7 @@ export async function handleCoverLetterGeneration(
   args: { jobTitle: string; company: string; jobDescription: string; hiringManagerName?: string },
   deps: GenerationDeps
 ) {
-  const { anthropic, profile, metrics, projects, voiceAnswers, freshness, documentProvenanceStatement } = deps;
+  const { anthropic, profile, metrics, projects, skills, voiceAnswers, freshness, documentProvenanceStatement } = deps;
   const { jobTitle, company, jobDescription, hiringManagerName } = args;
 
   const systemLines = [
@@ -363,6 +397,34 @@ export async function handleCoverLetterGeneration(
           text: `[${parsed.code}] Cover letter JSON did not match the required schema. ${parsed.hint}`,
         }],
       };
+    }
+
+    if (isGenerationFactVerifyEnabled()) {
+      const corpusNorm = buildVerifiedFactCorpus({ profile, metrics, projects, skills, voiceAnswers });
+      const fact = verifyCoverLetterDocumentFacts(parsed.data, corpusNorm);
+      if (!fact.ok) {
+        logGenerationTelemetry({
+          tool: "cover_letter",
+          ok: false,
+          durationMs: Date.now() - started,
+          jdChars,
+          jdPromptChars: jdTelemetry.jdPromptChars,
+          jdExtractUsed: jdTelemetry.jdExtractUsed,
+          jdExtractOk: jdTelemetry.jdExtractOk,
+          companyChars,
+          jobTitleChars,
+          model,
+          attempts,
+          errorCode: fact.code,
+        });
+        return {
+          isError: true,
+          content: [{
+            type: "text" as const,
+            text: `[${fact.code}] ${fact.hint} Retry once; if it persists, shorten the job description or set GENERATION_FACT_VERIFY_ENABLED=0 only as a temporary escape hatch.`,
+          }],
+        };
+      }
     }
 
     const text = renderCoverLetterMarkdown(parsed.data);
