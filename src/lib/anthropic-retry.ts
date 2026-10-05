@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { getAnthropicFallbackModel } from "./model-env.js";
 
 export type MessageCreateParams = Parameters<Anthropic["messages"]["create"]>[0];
 
@@ -12,6 +13,17 @@ export function getAnthropicErrorStatus(err: unknown): number | undefined {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isModelNotFoundError(err: unknown): boolean {
+  const status = getAnthropicErrorStatus(err);
+  if (status === 404) return true;
+  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  if (msg.includes("not_found_error")) return true;
+  return (
+    msg.includes("model") &&
+    (msg.includes("not found") || msg.includes("not_found") || msg.includes("does not exist"))
+  );
 }
 
 function isRetryableError(err: unknown): boolean {
@@ -48,6 +60,15 @@ export async function messagesCreateWithRetry(
       return { response, attempts: attempt };
     } catch (err) {
       lastErr = err;
+      if (isModelNotFoundError(err)) {
+        const fallback = getAnthropicFallbackModel();
+        const primaryModel = typeof params.model === "string" ? params.model : "";
+        if (fallback && fallback !== primaryModel) {
+          const raw = await anthropic.messages.create({ ...params, model: fallback });
+          console.warn(`Primary model unavailable, used fallback: ${fallback}`);
+          return { response: raw as Anthropic.Message, attempts: attempt };
+        }
+      }
       if (attempt >= attemptsCap || !isRetryableError(err)) {
         throw err;
       }

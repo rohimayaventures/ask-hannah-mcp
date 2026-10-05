@@ -41,7 +41,7 @@ test("verifyResumeDocumentFacts passes for grounded sample against real corpus",
         bullets: ["Shipped live triage product in under 90 days with Stripe and OAuth."],
       },
     ],
-    education: "MS, Artificial Intelligence and Machine Learning, University of Colorado Boulder, in progress, expected 2026",
+    education: "M.S. Artificial Intelligence and Machine Learning, University of Colorado Boulder, paused, plans to re-apply",
   };
   const r = verifyResumeDocumentFacts(doc, realCorpus);
   assert.equal(r.ok, true);
@@ -53,7 +53,7 @@ test("verifyResumeDocumentFacts rejects invented currency", () => {
     skills: ["A", "B", "C"],
     experience: [{ headline: "PM", bullets: ["Saved the company $99M overnight."] }],
     projects: [{ name: "OrixLink AI", bullets: ["Live product."] }],
-    education: "MS AI, CU Boulder, in progress",
+    education: "M.S. AI, CU Boulder, paused, plans to re-apply",
   };
   const r = verifyResumeDocumentFacts(doc, realCorpus);
   assert.equal(r.ok, false);
@@ -69,7 +69,7 @@ test("verifyResumeDocumentFacts rejects forbidden references", () => {
     skills: ["A", "B", "C"],
     experience: [{ headline: "PM", bullets: ["Shipped."] }],
     projects: [{ name: "OrixLink AI", bullets: ["Live."] }],
-    education: "MS AI, CU Boulder, in progress",
+    education: "M.S. AI, CU Boulder, paused, plans to re-apply",
   };
   const r = verifyResumeDocumentFacts(doc, realCorpus);
   assert.equal(r.ok, false);
@@ -82,7 +82,7 @@ test("verifyResumeDocumentFacts rejects 15 years framing", () => {
     skills: ["A", "B", "C"],
     experience: [{ headline: "PM", bullets: ["Shipped."] }],
     projects: [{ name: "OrixLink AI", bullets: ["Live."] }],
-    education: "MS AI, CU Boulder, in progress",
+    education: "M.S. AI, CU Boulder, paused, plans to re-apply",
   };
   const r = verifyResumeDocumentFacts(doc, realCorpus);
   assert.equal(r.ok, false);

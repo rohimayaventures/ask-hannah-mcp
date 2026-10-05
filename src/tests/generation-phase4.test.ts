@@ -26,7 +26,7 @@ const sampleResume: ResumeDocument = {
   skills: ["TypeScript", "MCP", "Strategy"],
   experience: [{ headline: "PM | Health", bullets: ["Built OrixLink"] }],
   projects: [{ name: "OrixLink AI", bullets: ["Live triage"] }],
-  education: "MS AI, School, in progress",
+  education: "M.S. AI, School, paused, plans to re-apply",
 };
 
 test("parseResumeAtsMode accepts aliases", () => {

@@ -118,7 +118,7 @@ After Zod validation, Phase 3 fact verification (unless disabled), and Phase 4 r
         "bullets": ["Live product proof point from verified data"]
       }
     ],
-    "education": "MS, Artificial Intelligence and Machine Learning, University of Colorado Boulder, in progress, expected 2026"
+    "education": "M.S. Artificial Intelligence and Machine Learning, University of Colorado Boulder, paused, plans to re-apply"
   },
   "provenance": "Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.",
   "profileDataLastUpdated": "2026-04-09",

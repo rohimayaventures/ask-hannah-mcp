@@ -13,7 +13,7 @@ const validResume: ResumeDocument = {
   skills: ["TypeScript", "MCP", "Product strategy"],
   experience: [{ headline: "PM | Health AI", bullets: ["Shipped OrixLink in 90 days"] }],
   projects: [{ name: "OrixLink AI", bullets: ["Clinical triage live"] }],
-  education: "MS AI, University of Colorado Boulder, in progress, expected 2026",
+  education: "M.S. Artificial Intelligence and Machine Learning, University of Colorado Boulder, paused, plans to re-apply",
 };
 
 test("parseResumeDocumentFromModelText accepts raw JSON", () => {

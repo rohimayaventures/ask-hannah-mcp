@@ -1,25 +1,33 @@
-/** Default when no env override is set (keep in sync with generation rollout). */
-export const DEFAULT_ANTHROPIC_GENERATION_MODEL = "claude-sonnet-4-20250514";
+/** Primary model when ANTHROPIC_MODEL is unset. */
+export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5";
 
-/** Default extractor model (Haiku-class) to keep posting analysis cheaper than main generation. Override if your account requires a different ID. */
-export const DEFAULT_JD_EXTRACT_MODEL = "claude-3-5-haiku-20241022";
+/** Used once when the primary model returns 404 or model-not-found. */
+export const DEFAULT_ANTHROPIC_FALLBACK_MODEL = "claude-haiku-4-5-20251001";
+
+/** Alias kept for existing callers; same value as DEFAULT_ANTHROPIC_MODEL. */
+export const DEFAULT_ANTHROPIC_GENERATION_MODEL = DEFAULT_ANTHROPIC_MODEL;
+
+/** JD extraction uses the primary model unless ANTHROPIC_MODEL_JD_EXTRACT is set. */
+export const DEFAULT_JD_EXTRACT_MODEL = DEFAULT_ANTHROPIC_MODEL;
+
+export function getAnthropicModel(): string {
+  return process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
+}
+
+export function getAnthropicFallbackModel(): string {
+  return process.env.ANTHROPIC_FALLBACK_MODEL?.trim() || DEFAULT_ANTHROPIC_FALLBACK_MODEL;
+}
 
 export function getResumeGenerationModel(): string {
-  const fromEnv =
-    process.env.ANTHROPIC_MODEL_RESUME?.trim() || process.env.ANTHROPIC_MODEL?.trim();
-  return fromEnv || DEFAULT_ANTHROPIC_GENERATION_MODEL;
+  return process.env.ANTHROPIC_MODEL_RESUME?.trim() || getAnthropicModel();
 }
 
 export function getCoverLetterGenerationModel(): string {
-  const fromEnv =
-    process.env.ANTHROPIC_MODEL_COVER_LETTER?.trim() || process.env.ANTHROPIC_MODEL?.trim();
-  return fromEnv || DEFAULT_ANTHROPIC_GENERATION_MODEL;
+  return process.env.ANTHROPIC_MODEL_COVER_LETTER?.trim() || getAnthropicModel();
 }
 
 export function getJdExtractModel(): string {
-  const fromEnv =
-    process.env.ANTHROPIC_MODEL_JD_EXTRACT?.trim() || process.env.ANTHROPIC_MODEL?.trim();
-  return fromEnv || DEFAULT_JD_EXTRACT_MODEL;
+  return process.env.ANTHROPIC_MODEL_JD_EXTRACT?.trim() || getAnthropicModel();
 }
 
 /** Max output tokens for resume JSON generation (Phase 2). Capped at 8192. */

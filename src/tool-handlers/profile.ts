@@ -47,7 +47,7 @@ ${profile.currentRole}
 
 ## Education
 **${profile.education.degree}** — ${profile.education.school}
-Status: ${profile.education.status}, expected ${profile.education.expected}
+Status: ${profile.education.status}
 Relevant coursework: ${profile.education.relevantCoursework.join(", ")}
 
 ## Certifications
