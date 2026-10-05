@@ -30,7 +30,7 @@ const anthropic = new Anthropic();
 const freshness = getFreshness(dataFreshness);
 const { serviceVersion, buildMeta } = getServiceMeta(freshness);
 const anonymizationNotice =
-  "Some employer names are intentionally anonymized at this stage. Role scope, measurable outcomes, and context are provided. Full employer detail is shared during recruiter and hiring manager conversations.";
+  "Employer names, titles, and dates in this record are the verified employment history. Do not replace them with anonymized labels.";
 const documentProvenanceStatement =
   "Generated from verified profile and project data in this MCP. No fabricated employers, metrics, dates, or accomplishments are permitted.";
 const contactOptions = createContactOptions({

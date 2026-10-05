@@ -85,6 +85,7 @@ export function renderResumePlain(
   lines.push("");
   lines.push(`Location: ${h.location}`);
   lines.push(`Email: ${h.email}`);
+  if (header.phone) lines.push(`Phone: ${stripInlineMarkdownForAts(header.phone)}`);
   lines.push(`Portfolio: ${h.portfolio}`);
   lines.push(`LinkedIn: ${h.linkedin}`);
   lines.push(`GitHub: ${h.github}`);

@@ -5,6 +5,7 @@ export type ResumeProfileHeader = {
   title: string;
   location: string;
   email: string;
+  phone?: string;
   portfolio: string;
   linkedin: string;
   github: string;
@@ -14,7 +15,7 @@ export function getResumePdfCtaLine(): string {
   const line = process.env.RESUME_PDF_CTA_LINE?.trim();
   return line && line.length > 0
     ? line
-    : "Full downloadable PDF available at hannahkraulikpagade.com/resume-builder";
+    : "Full downloadable PDF available at https://hannahkraulikpagade.com/resume-builder";
 }
 
 /** Deterministic Markdown from validated resume JSON plus verified profile header. */
@@ -30,6 +31,7 @@ export function renderResumeMarkdown(
   lines.push("");
   lines.push(`**Location:** ${header.location}`);
   lines.push(`**Email:** ${header.email}`);
+  if (header.phone) lines.push(`**Phone:** ${header.phone}`);
   lines.push(`**Portfolio:** ${header.portfolio}`);
   lines.push(`**LinkedIn:** ${header.linkedin}`);
   lines.push(`**GitHub:** ${header.github}`);

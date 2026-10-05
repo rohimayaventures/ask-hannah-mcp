@@ -20,7 +20,7 @@ export function handleGetProfile(
     education: profile.education,
     certifications: profile.certifications,
     targetRoles: profile.targetRoles,
-    contact: { email: profile.email, portfolio: profile.portfolio, linkedin: profile.linkedin, github: profile.github },
+    contact: { email: profile.email, phone: profile.phone, portfolio: profile.portfolio, linkedin: profile.linkedin, github: profile.github },
     contactOptions,
     compensation: profile.compensation,
     availability: profile.availability,
@@ -46,7 +46,7 @@ ${profile.background.summary}
 ${profile.currentRole}
 
 ## Education
-**${profile.education.degree}** — ${profile.education.school}
+**${profile.education.degree}**, ${profile.education.school}
 Status: ${profile.education.status}
 Relevant coursework: ${profile.education.relevantCoursework.join(", ")}
 
@@ -64,6 +64,8 @@ ${profile.availability}
 
 ## Contact
 - Email: ${profile.email}
+- Phone: ${profile.phone}
+- Location: ${profile.location}
 - Portfolio: ${profile.portfolio}
 - LinkedIn: ${profile.linkedin}
 - GitHub: ${profile.github}
